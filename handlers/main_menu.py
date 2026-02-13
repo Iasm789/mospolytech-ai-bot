@@ -113,10 +113,9 @@ async def students_menu(message: types.Message):
     
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📅 Расписание"), KeyboardButton(text="🤖 GigaChat AI")],
-            [KeyboardButton(text="👨‍🏫 Преподаватели"), KeyboardButton(text="💡 База знаний")],
-            [KeyboardButton(text="🔗 Полезные ссылки"), KeyboardButton(text="🔔 Напоминания")],
-            [KeyboardButton(text="◀️ Назад в меню")],
+            [KeyboardButton(text="📅 Расписание"), KeyboardButton(text="👨‍🏫 Преподаватели")],
+            [KeyboardButton(text="💡 База знаний"), KeyboardButton(text="🔗 Полезные ссылки")],
+            [KeyboardButton(text="🔔 Напоминания"), KeyboardButton(text="◀️ Назад в меню")],
         ],
         resize_keyboard=True,
         one_time_keyboard=False
@@ -206,23 +205,6 @@ async def faq_applicant(message: types.Message):
 
 
 # Обработчики для student подразделов
-@router.message(F.text == "🤖 GigaChat AI")
-async def gigachat_button(message: types.Message):
-    """Переход к GigaChat AI"""
-    await message.answer(
-        "🤖 Жми /ask чтобы задать вопрос GigaChat AI или /gigachat_status для проверки подключения",
-        reply_markup=ReplyKeyboardMarkup(
-            keyboard=[
-                [KeyboardButton(text="📅 Расписание"), KeyboardButton(text="🤖 GigaChat AI")],
-                [KeyboardButton(text="👨‍🏫 Преподаватели"), KeyboardButton(text="💡 База знаний")],
-                [KeyboardButton(text="🔗 Полезные ссылки"), KeyboardButton(text="🔔 Напоминания")],
-                [KeyboardButton(text="◀️ Назад в меню")],
-            ],
-            resize_keyboard=True
-        )
-    )
-
-
 @router.message(F.text == "👨‍🏫 Преподаватели")
 async def teachers(message: types.Message):
     await message.answer("👨‍🏫 Справочник преподавателей (в разработке)")

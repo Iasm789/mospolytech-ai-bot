@@ -13,8 +13,6 @@ from config.settings import settings
 from utils.logger import logger
 from handlers.main_menu import router as main_menu_router
 from handlers.schedule import router as schedule_router
-from handlers.gigachat import router as gigachat_router
-
 
 
 # Инициализация бота и диспетчера
@@ -23,7 +21,6 @@ dp = Dispatcher()
 
 # Подключение маршрутизаторов
 
-dp.include_router(gigachat_router)  # GigaChat AI
 dp.include_router(schedule_router)  # Расписание
 dp.include_router(main_menu_router)
 
