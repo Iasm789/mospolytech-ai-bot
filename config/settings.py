@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = '.env'
         case_sensitive = True
+        extra = 'ignore'  # Игнорировать лишние переменные в .env
 
 
 settings = Settings()

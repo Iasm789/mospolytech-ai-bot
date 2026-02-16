@@ -104,6 +104,34 @@ class ScheduleParser:
         """Получить все доступные группы"""
         return self._all_groups
     
+    @staticmethod
+    def _extract_webinar_url(lesson: Dict) -> Optional[str]:
+        """
+        Извлечь ссылку на вебинар из данных занятия
+        
+        Args:
+            lesson: Исходные данные занятия из API
+            
+        Returns:
+            URL вебинара или None
+        """
+        try:
+            auditories = lesson.get('auditories', [])
+            if not auditories:
+                return None
+            
+            for auditory in auditories:
+                title = auditory.get('title', '')
+                if 'href' in title:
+                    match = re.search(r'href="([^"]+)"', title)
+                    if match:
+                        return match.group(1)
+            
+            return None
+        except Exception as e:
+            logger.warning(f"⚠️ Ошибка при извлечении ссылки вебинара: {e}")
+            return None
+    
     def close(self):
         """Закрытие сессии"""
         if self.session:
@@ -319,6 +347,7 @@ class ScheduleParser:
                         'time_str': f"{time_info.get('start', '??:??')} - {time_info.get('end', '??:??')}",
                         'time_period': time_info.get('period', 'unknown'),
                         'day_num': day_num,
+                        'webinar_url': self._extract_webinar_url(lesson),
                         'raw': lesson
                     }
                     
@@ -363,6 +392,8 @@ class ScheduleParser:
                     result.append(f"      👨‍🏫 {lesson['teacher'][:60]}...")
                 if lesson['period']:
                     result.append(f"      📋 {lesson['period']}")
+                if lesson.get('webinar_url'):
+                    result.append(f"      🌐 Вебинар: {lesson['webinar_url']}")
             
         return "\n".join(result)
 

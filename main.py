@@ -20,7 +20,6 @@ bot = Bot(token=settings.BOT_TOKEN)
 dp = Dispatcher()
 
 # Подключение маршрутизаторов
-
 dp.include_router(schedule_router)  # Расписание
 dp.include_router(main_menu_router)
 

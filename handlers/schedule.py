@@ -44,7 +44,7 @@ def get_main_menu_keyboard():
     )
 
 
-@router.message(F.text == "📅 Расписание")
+@router.message(F.text == "📅 Расписание занятий")
 async def ask_for_group(message: types.Message, state: FSMContext):
     """Запрос номера группы"""
     await state.set_state(ScheduleForm.waiting_for_group)
@@ -271,16 +271,9 @@ def format_schedule_for_period(schedule: dict, group: str, period: str) -> str:
                     response.append(f"📋 {period_info}")
                 
                 # Ссылка на онлайн занятие (если есть)
-                raw = lesson.get('raw', {})
-                auditories = raw.get('auditories', [])
-                if auditories:
-                    for auditory in auditories:
-                        title = auditory.get('title', '')
-                        if 'href' in title:
-                            match = re.search(r'href="([^"]+)"', title)
-                            if match:
-                                link = match.group(1)
-                                response.append(f"🌐 <a href='{link}'>Онлайн занятие</a>")
+                webinar_url = lesson.get('webinar_url')
+                if webinar_url:
+                    response.append(f"🌐 <a href='{webinar_url}'>Онлайн занятие</a>")
     
     return "\n".join(response)
 
