@@ -258,6 +258,7 @@ async def handle_student(message: types.Message):
             [KeyboardButton(text="📅 Расписание занятий")],
             [KeyboardButton(text="📋 Услуги МФЦ")],
             [KeyboardButton(text="💰 Стипендии")],
+            [KeyboardButton(text="🏘️ Общежития")],
             [KeyboardButton(text=" Студенческие проекты")],
             [KeyboardButton(text="◀️ Назад")],
         ],

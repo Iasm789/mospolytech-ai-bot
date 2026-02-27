@@ -292,6 +292,7 @@ async def handle_back_to_menu(callback: types.CallbackQuery):
             [KeyboardButton(text="📅 Расписание занятий")],
             [KeyboardButton(text="📋 Услуги МФЦ")],
             [KeyboardButton(text="💰 Стипендии")],
+            [KeyboardButton(text="🏘️ Общежития")],
             [KeyboardButton(text=" Студенческие проекты")],
             [KeyboardButton(text="◀️ Назад")],
         ],

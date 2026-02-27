@@ -636,8 +636,9 @@ async def back_to_student_menu(message: types.Message, state: FSMContext):
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📅 Расписание занятий")],
-            [KeyboardButton(text="� Услуги МФЦ")],
+            [KeyboardButton(text="📋 Услуги МФЦ")],
             [KeyboardButton(text="💰 Стипендии")],
+            [KeyboardButton(text="🏘️ Общежития")],
             [KeyboardButton(text="💼 Студенческие проекты")],
             [KeyboardButton(text="◀️ Назад")],
         ],

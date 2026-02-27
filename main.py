@@ -15,6 +15,7 @@ from handlers.main_menu import router as main_menu_router
 from handlers.schedule import router as schedule_router
 from handlers.mfc_services import router as mfc_services_router, init_mfc_data
 from handlers.scholarships import router as scholarships_router, init_scholarships_data
+from handlers.dormitories import router as dormitories_router, init_dormitories_data
 
 
 # Инициализация бота и диспетчера
@@ -25,6 +26,7 @@ dp = Dispatcher()
 dp.include_router(schedule_router)  # Расписание
 dp.include_router(mfc_services_router)  # МФЦ услуги
 dp.include_router(scholarships_router)  # Стипендии
+dp.include_router(dormitories_router)  # Общежития
 dp.include_router(main_menu_router)  # Главное меню
 
 
@@ -46,6 +48,8 @@ async def on_startup():
     await init_mfc_data()
     # Инициализируем данные о стипендиях
     await init_scholarships_data()
+    # Инициализируем данные об общежитиях
+    await init_dormitories_data()
     logger.info("✅ Бот успешно инициализирован")
 
 
