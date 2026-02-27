@@ -17,7 +17,7 @@ def get_main_menu_keyboard():
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="👨‍🎓 Абитуриенту"), KeyboardButton(text="📚 Студенту")],
-            [KeyboardButton(text="📰 Новости"), KeyboardButton(text="❓ Помощь")],
+            [KeyboardButton(text="🎪 Мероприятия"), KeyboardButton(text="❓ Помощь")],
             [KeyboardButton(text="💬 Обратная связь")],
         ],
         resize_keyboard=True,
@@ -260,6 +260,7 @@ async def handle_student(message: types.Message):
             [KeyboardButton(text="💰 Стипендии")],
             [KeyboardButton(text="🏘️ Общежития")],
             [KeyboardButton(text="📚 Студенческие Проекты")],
+            [KeyboardButton(text="🎪 ПД. Студенческие мероприятия")],
             [KeyboardButton(text="◀️ Назад")],
         ],
         resize_keyboard=True
@@ -273,221 +274,154 @@ async def handle_student(message: types.Message):
 
 
 
+@router.message(F.text == "🎪 ПД. Студенческие мероприятия")
+async def handle_student_events(message: types.Message):
+    """Обработчик для мероприятий студентов"""
+    # Перенаправляем на обработчик мероприятий из events router
+    # Создаем fake message с текстом мероприятий
+    events_text = """
+🎪 <b>ПД. Студенческие мероприятия</b>
 
-@router.message(F.text == "📰 Новости")
-async def handle_news(message: types.Message):
-    """Обработчик для новостей"""
-    news_text = """
-📰 **Новости МосПолитеха**
-
-Выбери категорию новостей:
+Выбери категорию мероприятий, которая тебя интересует:
 """
+    
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎓 Обучение", callback_data="events_education")],
+        [InlineKeyboardButton(text="💼 Карьера", callback_data="events_careers")],
+        [InlineKeyboardButton(text="🏆 Конкурсы", callback_data="events_competitions")],
+        [InlineKeyboardButton(text="🎭 Культура", callback_data="events_culture")],
+        [InlineKeyboardButton(text="🎉 Студенческая жизнь", callback_data="events_student_life")],
+        [InlineKeyboardButton(text="🤝 Волонтёрство", callback_data="events_volunteering")],
+        [InlineKeyboardButton(text="🔍 Поиск мероприятия", callback_data="events_search")],
+        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_student_menu")],
+    ])
+    
+    await message.answer(events_text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.callback_query(F.data == "back_to_student_menu")
+async def back_to_student_menu(callback: types.CallbackQuery):
+    """Вернуться в меню студента"""
+    from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+    student_text = "📚 <b>Информация для студентов</b>\n\nЗдесь ты найдешь всё что нужно для учёбы и жизни в университете.\n\nВыбери интересующий раздел:"
     
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="🔥 Последние новости")],
-            [KeyboardButton(text="🎓 Академические новости")],
-            [KeyboardButton(text="🏆 Достижения студентов")],
-            [KeyboardButton(text="📅 События и мероприятия")],
+            [KeyboardButton(text="📅 Расписание занятий")],
+            [KeyboardButton(text="📋 Услуги МФЦ")],
+            [KeyboardButton(text="💰 Стипендии")],
+            [KeyboardButton(text="🏘️ Общежития")],
+            [KeyboardButton(text="📚 Студенческие Проекты")],
+            [KeyboardButton(text="🎪 ПД. Студенческие мероприятия")],
             [KeyboardButton(text="◀️ Назад")],
         ],
         resize_keyboard=True
     )
     
-    await message.answer(news_text, reply_markup=keyboard)
+    if callback.message:
+        await callback.message.answer(student_text, reply_markup=keyboard, parse_mode="HTML")
+        try:
+            await callback.message.delete()
+        except:
+            pass
+    await callback.answer()
 
 
-@router.message(F.text == "🔥 Последние новости")
-async def handle_latest_news(message: types.Message):
-    """Последние новости"""
-    latest_news = """
-🔥 **Последние новости МосПолитеха**
+# Обработчики для категорий событий с использованием callbacks
+@router.callback_query(F.data == "events_education")
+async def show_education_events(callback: types.CallbackQuery):
+    """Показать события по обучению"""
+    from services.events_service import get_events_service
+    events_service = get_events_service()
+    
+    events = await events_service.get_events_by_category("education")
+    text = f"🎓 <b>Обучение - Мероприятия</b>\n"
+    text += f"Найдено мероприятий: <b>{len(events)}</b>\n\n"
+    
+    if events:
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[])
+        for idx, event in enumerate(events[:5]):  # Показываем первые 5
+            title = event.get('title', 'Без названия')[:30] + "..."
+            callback_data = f"event:{event.get('id', '')}:education"
+            keyboard.inline_keyboard.append([
+                InlineKeyboardButton(text=f"📌 {title}", callback_data=callback_data)
+            ])
+        keyboard.inline_keyboard.append([
+            InlineKeyboardButton(text="◀️ К категориям", callback_data="back_to_events_menu")
+        ])
+        text += "<i>Нажми на событие для подробностей</i>"
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    else:
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_events_menu")]
+        ])
+        text += "❌ Мероприятия не найдены"
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    
+    await callback.answer()
 
-📍 **16 февраля 2026**
-   • 🎉 Начало весеннего семестра - все студенты вернулись!
-   • 💻 Открытие нового IT-центра на 500 рабочих мест
-   • 🌍 Заключено партнерство с Google и Microsoft
 
-📍 **10 февраля 2026**
-   • 🏆 Студенты выиграли региональный хакатон
-   • 📚 Запуск новой программы обучения по AI/ML
-   • 🎓 Повышение стипендий для отличников
+@router.callback_query(F.data == "events_careers")
+async def show_careers_events(callback: types.CallbackQuery):
+    """Показать события по карьере"""
+    from services.events_service import get_events_service
+    events_service = get_events_service()
+    
+    events = await events_service.get_events_by_category("careers")
+    text = f"💼 <b>Карьера - Мероприятия</b>\n"
+    text += f"Найдено мероприятий: <b>{len(events)}</b>\n\n"
+    
+    if events:
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[])
+        for idx, event in enumerate(events[:5]):
+            title = event.get('title', 'Без названия')[:30] + "..."
+            callback_data = f"event:{event.get('id', '')}:careers"
+            keyboard.inline_keyboard.append([
+                InlineKeyboardButton(text=f"📌 {title}", callback_data=callback_data)
+            ])
+        keyboard.inline_keyboard.append([
+            InlineKeyboardButton(text="◀️ К категориям", callback_data="back_to_events_menu")
+        ])
+        text += "<i>Нажми на событие для подробностей</i>"
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    else:
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_events_menu")]
+        ])
+        text += "❌ Мероприятия не найдены"
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    
+    await callback.answer()
 
-📍 **5 февраля 2026**
-   • ✨ Реконструкция главного здания завершена
-   • 🍽️ Открытие нового студенческого кафе
-   • 🚀 Студенты запустили свой технологический стартап
 
-📍 **30 января 2026**
-   • 📡 Внедрение системы онлайн-обучения
-   • 🎨 Выставка лучших дипломных проектов
-   • 💼 Ярмарка вакансий с 50+ компаниями
+@router.callback_query(F.data == "back_to_events_menu")
+async def back_to_events_menu_callback(callback: types.CallbackQuery):
+    """Вернуться в меню событий"""
+    events_text = """
+🎪 <b>ПД. Студенческие мероприятия</b>
 
-Больше новостей на сайте: https://mospolytech.ru/news
+Выбери категорию мероприятий, которая тебя интересует:
 """
     
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📰 Новости")],
-            [KeyboardButton(text="🏠 Главное меню")],
-        ],
-        resize_keyboard=True
-    )
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎓 Обучение", callback_data="events_education")],
+        [InlineKeyboardButton(text="💼 Карьера", callback_data="events_careers")],
+        [InlineKeyboardButton(text="🏆 Конкурсы", callback_data="events_competitions")],
+        [InlineKeyboardButton(text="🎭 Культура", callback_data="events_culture")],
+        [InlineKeyboardButton(text="🎉 Студенческая жизнь", callback_data="events_student_life")],
+        [InlineKeyboardButton(text="🤝 Волонтёрство", callback_data="events_volunteering")],
+        [InlineKeyboardButton(text="🔍 Поиск мероприятия", callback_data="events_search")],
+        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_student_menu")],
+    ])
     
-    await message.answer(latest_news, parse_mode="HTML", reply_markup=keyboard)
-
-
-@router.message(F.text == "🎓 Академические новости")
-async def handle_academic_news(message: types.Message):
-    """Академические новости"""
-    academic_news = """
-🎓 **Академические новости МосПолитеха**
-
-📚 **Новые программы обучения:**
-   • Курс по Kubernetes и Docker
-   • Основы квантовых вычислений
-   • Расширенный курс по машинному обучению
-   • Практика веб-разработки на React & Angular
-
-👨‍🏫 **Приглашённые лекторы:**
-   • Профессор Беркли - "Будущее AI"
-   • Ведущий инженер Google - "Облачные архитектуры"
-   • Эксперт по кибербезопасности - "Защита данных"
-
-📖 **Обновления библиотеки:**
-   • +500 новых книг по IT и технологиям
-   • Доступ к 100+ электронным журналам
-   • Подписка на O'Reilly Learning Platform
-
-🏅 **Результаты экзаменов:**
-   • Средний балл выше на 15% чем в прошлом году
-   • 200+ студентов получили отличные оценки
-   • Стипендии получат 150 студентов
-
-🔬 **Исследовательские проекты:**
-   • Грант Минобрнауки на 5 млн. руб. на проект AI
-   • 3 статьи опубликованы в международных журналах
-   • 10 студентов участвуют в НИР
-
-Успехи студентов - это успех универсистета! 🌟
-"""
-    
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📰 Новости")],
-            [KeyboardButton(text="🏠 Главное меню")],
-        ],
-        resize_keyboard=True
-    )
-    
-    await message.answer(academic_news, parse_mode="HTML", reply_markup=keyboard)
-
-
-@router.message(F.text == "🏆 Достижения студентов")
-async def handle_student_achievements(message: types.Message):
-    """Достижения студентов"""
-    achievements = """
-🏆 **Достижения студентов МосПолитеха**
-
-🥇 **Конкурсы и олимпиады:**
-   • 1️⃣ место - Всероссийская олимпиада по программированию
-   • 2️⃣ место - Международный хакатон TechCrunch Disrupt
-   • 3️⃣ место - Конкурс инновационных стартапов
-   • 🏅 Золотые медали на 5 научных конференциях
-
-💡 **Стартапы и проекты:**
-   • 15 студенческих стартапов получили инвестиции
-   • МосПолиTech App скачана более 50,000 раз
-   • Проект AutoBot привлек 10 млн. инвестиций
-   • Platfom для удаленного обучения - 1 млн пользователей
-
-🌍 **Международные достижения:**
-   • Студенты участвовали в программе erasmus+ (20 чел.)
-   • Лучший проект на Google I/O Extended
-   • Представительство на World Student Summit
-   • Обмен с ведущими университетами мира
-
-🎓 **Трудоустройство:**
-   • 95% выпускников трудоустроены в первый месяц
-   • Средняя зарплата выпускника - 180,000 руб./мес
-   • Работают в Google, Yandex, VK, Gazprom и других лидерах
-   • CEO компаний - выпускники МосПолитеха
-
-👨‍💼 **Карьерный рост:**
-   • Более 100 выпускников руководят компаниями
-   • Средний возраст достижения должности директора - 32 года
-   • Выпускники основали 50+ технологических компаний
-
-Гордимся нашим студентами! 💪
-"""
-    
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📰 Новости")],
-            [KeyboardButton(text="🏠 Главное меню")],
-        ],
-        resize_keyboard=True
-    )
-    
-    await message.answer(achievements, parse_mode="HTML", reply_markup=keyboard)
-
-
-@router.message(F.text == "📅 События и мероприятия")
-async def handle_events(message: types.Message):
-    """События и мероприятия"""
-    events = """
-📅 **События и мероприятия МосПолитеха**
-
-🎉 **Ближайшие мероприятия:**
-
-📅 **20 февраля** - Открытие выставки лучших дипломных проектов
-   📍 Корпус 1, главный холл
-   🕐 15:00-18:00
-   👥 Все желающие
-
-📅 **22 февраля** - Ежегодный Defender of the Fatherland Day
-   📍 По всему университету
-   🕐 В течение дня
-   🎖️ Почитание ветеранов
-
-📅 **25 февраля** - Хакатон MosPolytech Code Battle
-   📍 Корпус 2, кл. 201-205
-   🕐 09:00-18:00
-   💰 Призовой фонд 500,000 руб
-
-📅 **1 марта** - День открытых дверей для абитуриентов
-   📍 Главное здание
-   🕐 10:00-16:00
-   📚 Экскурсия по университету
-
-🏋️ **Спортивные события:**
-   • Турнир по футболу - 10 марта
-   • Чемпионат по программированию - 15 марта
-   • Легкоатлетический кросс - 20 марта
-
-🎓 **Лекции и семинары:**
-   • Еженедельные встречи с экспертами
-   • Мастер-классы от технолидеров компаний
-   • Круглые столы по инновациям
-   • Вебинары в режиме онлайн
-
-📱 **Подписывайся на события:**
-   📲 Telegram: @mospolytech_events
-   📲 VK: https://vk.com/mospolytech
-   📲 Instagram: @mospolytech_official
-
-Не пропусти ни одно событие! 🎊
-"""
-    
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📰 Новости")],
-            [KeyboardButton(text="🏠 Главное меню")],
-        ],
-        resize_keyboard=True
-    )
-    
-    await message.answer(events, parse_mode="HTML", reply_markup=keyboard)
+    await callback.message.edit_text(events_text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.answer()
 
 
 @router.message(F.text == "❓ Помощь")

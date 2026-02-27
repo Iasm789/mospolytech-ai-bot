@@ -652,3 +652,4 @@ async def back_to_student_menu(message: types.Message, state: FSMContext):
 async def back_to_main_menu_from_schedule(message: types.Message, state: FSMContext):
     """Вернуться в главное меню"""
     await state.clear()
+    await message.answer("📋 Главное меню", reply_markup=get_main_menu_keyboard())

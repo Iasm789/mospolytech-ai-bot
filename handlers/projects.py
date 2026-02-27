@@ -31,7 +31,7 @@ def get_main_menu_keyboard():
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="👨‍🎓 Абитуриенту"), KeyboardButton(text="📚 Студенту")],
-            [KeyboardButton(text="📰 Новости"), KeyboardButton(text="❓ Помощь")],
+            [KeyboardButton(text="🎪 Мероприятия"), KeyboardButton(text="❓ Помощь")],
             [KeyboardButton(text="💬 Обратная связь")],
         ],
         resize_keyboard=True
@@ -134,7 +134,7 @@ def get_category_nav_keyboard(projects: list, page: int, category_idx: int, tota
     cat_nav_buttons = []
     if category_idx > 0:
         cat_nav_buttons.append(InlineKeyboardButton(
-            text="◀️ Пред. кат",
+            text="◀️ Пред. категория",
             callback_data=f"cat_nav_{category_idx - 1}"
         ))
     
@@ -145,7 +145,7 @@ def get_category_nav_keyboard(projects: list, page: int, category_idx: int, tota
     
     if category_idx + 1 < total_categories:
         cat_nav_buttons.append(InlineKeyboardButton(
-            text="Сл. кат ➡️",
+            text="Сл. категория ➡️",
             callback_data=f"cat_nav_{category_idx + 1}"
         ))
     
@@ -254,23 +254,84 @@ async def view_all_categories(message_or_callback: types.Message | types.Callbac
         await message_or_callback.answer()
 
 
+# Обработчик навигации между категориями (должен быть rasШЕ этот обработчик cat_nav_)
+@router.callback_query(F.data.startswith("cat_nav_"))
+async def navigate_category(callback: types.CallbackQuery, state: FSMContext):
+    """Обработка навигации между категориями (< >)"""
+    
+    try:
+        # Парсим индекс категории из callback_data
+        cat_idx_str = callback.data.replace("cat_nav_", "")
+        logger.info(f"📂 Навигация категориям: callback_data={callback.data}, cat_idx_str={cat_idx_str}")
+        
+        cat_idx = int(cat_idx_str)
+        categories = projects_service.get_all_categories()
+        
+        logger.info(f"📂 Всего категорий: {len(categories)}, запрошенный индекс: {cat_idx}")
+        
+        if cat_idx < 0 or cat_idx >= len(categories):
+            logger.warning(f"⚠️ Индекс категории вне диапазона: {cat_idx}")
+            await callback.answer("❌ Категория не найдена.", show_alert=True)
+            return
+        
+        category = categories[cat_idx]
+        logger.info(f"✅ Выбрана категория: {category} (индекс {cat_idx})")
+        
+        projects = projects_service.get_projects_by_category(category)
+        logger.info(f"📊 В категории '{category}' найдено {len(projects)} проектов")
+        
+        if not projects:
+            logger.warning(f"⚠️ В категории '{category}' нет проектов")
+            await callback.answer(f"ℹ️ В категории '{category}' пока нет проектов.", show_alert=True)
+            return
+        
+        await state.update_data(
+            current_category=category,
+            current_category_idx=cat_idx,
+            current_page=0,
+            projects=projects
+        )
+        
+        logger.info(f"🔄 Состояние обновлено для категории {cat_idx}")
+        await show_category_projects(callback, category, projects, 0, cat_idx)
+    except ValueError as e:
+        logger.error(f"❌ Ошибка парсинга индекса категории: {e}, callback_data={callback.data}")
+        await callback.answer("❌ Ошибка при обработке запроса.", show_alert=True)
+    except Exception as e:
+        logger.error(f"❌ Ошибка в navigate_category: {e}", exc_info=True)
+        await callback.answer("❌ Ошибка при переходе между категориями.", show_alert=True)
+
+
 # Обработчик выбора категории
 @router.callback_query(F.data.startswith("cat_"))
 async def category_selected(callback: types.CallbackQuery, state: FSMContext):
     """Обработка выбора категории"""
     
+    # Пропускаем если это callback навигации (начинается с cat_nav_)
+    if "nav" in callback.data:
+        logger.warning(f"⚠️ Callback для навигации перехвачен, пропускаем: {callback.data}")
+        return
+    
     try:
         cat_idx = int(callback.data.replace("cat_", ""))
+        logger.info(f"📂 Выбора категории: callback_data={callback.data}, cat_idx={cat_idx}")
+        
         categories = projects_service.get_all_categories()
+        logger.info(f"📂 Всего категорий: {len(categories)}")
         
         if cat_idx >= len(categories):
+            logger.warning(f"⚠️ Индекс категории {cat_idx} вне диапазона [0, {len(categories)-1}]")
             await callback.answer("❌ Категория не найдена.", show_alert=True)
             return
         
         category = categories[cat_idx]
+        logger.info(f"✅ Выбрана категория: {category} (индекс {cat_idx})")
+        
         projects = projects_service.get_projects_by_category(category)
+        logger.info(f"📊 В категории '{category}' найдено {len(projects)} проектов")
         
         if not projects:
+            logger.warning(f"⚠️ В категории '{category}' нет проектов")
             await callback.answer(f"ℹ️ В категории '{category}' пока нет проектов.", show_alert=True)
             return
         
@@ -282,78 +343,59 @@ async def category_selected(callback: types.CallbackQuery, state: FSMContext):
             projects=projects
         )
         
+        logger.info(f"🔄 Состояние обновлено, показываем проекты")
         # Показываем первую страницу проектов
         await show_category_projects(callback, category, projects, 0, cat_idx)
-    except Exception as e:
-        logger.error(f"Ошибка в category_selected: {e}")
+    except ValueError as e:
+        logger.error(f"❌ Ошибка парсинга индекса категории: {callback.data}, error={e}")
         await callback.answer("❌ Ошибка при выборе категории.", show_alert=True)
-
-
-# Обработчик навигации между категориями
-@router.callback_query(F.data.startswith("cat_nav_"))
-async def navigate_category(callback: types.CallbackQuery, state: FSMContext):
-    """Обработка навигации между категориями (< >)"""
-    
-    try:
-        cat_idx = int(callback.data.replace("cat_nav_", ""))
-        categories = projects_service.get_all_categories()
-        
-        if cat_idx < 0 or cat_idx >= len(categories):
-            await callback.answer("❌ Категория не найдена.", show_alert=True)
-            return
-        
-        category = categories[cat_idx]
-        projects = projects_service.get_projects_by_category(category)
-        
-        if not projects:
-            await callback.answer(f"ℹ️ В категории '{category}' пока нет проектов.", show_alert=True)
-            return
-        
-        await state.update_data(
-            current_category=category,
-            current_category_idx=cat_idx,
-            current_page=0,
-            projects=projects
-        )
-        
-        await show_category_projects(callback, category, projects, 0, cat_idx)
     except Exception as e:
-        logger.error(f"Ошибка в navigate_category: {e}")
-        await callback.answer("❌ Ошибка при переходе между категориями.", show_alert=True)
+        logger.error(f"❌ Ошибка в category_selected: {e}", exc_info=True)
+        await callback.answer("❌ Ошибка при выборе категории.", show_alert=True)
 
 
 async def show_category_projects(callback: types.CallbackQuery, category: str, projects: list, page: int, category_idx: int):
     """Показать проекты категории с пагинацией"""
     
-    categories = projects_service.get_all_categories()
-    total_categories = len(categories)
-    total_pages = math.ceil(len(projects) / PROJECTS_PER_PAGE) if projects else 1
-    start_idx = page * PROJECTS_PER_PAGE
-    end_idx = start_idx + PROJECTS_PER_PAGE
-    
-    icons = get_categories_icons()
-    icon = icons.get(category, "📂")
-    
-    text = f"{icon} <b>{category}</b>\n"
-    text += f"Страница <b>{page + 1}/{total_pages}</b> | Всего: <b>{len(projects)}</b> проектов\n\n"
-    
-    if projects[start_idx:end_idx]:
-        for idx, project in enumerate(projects[start_idx:end_idx], start=start_idx + 1):
-            text += f"{idx}. <b>{project.title[:50]}</b>\n"
-            if project.goal:
-                text += f"    🎯 {project.goal[:70]}...\n"
-            text += "\n"
-    else:
-        text += "❌ В этой категории пока нет проектов."
-    
-    keyboard = get_category_nav_keyboard(projects, page, category_idx, total_categories)
-    
-    if callback.message:
-        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-    else:
-        await callback.answer(text, show_alert=True)
-    
-    await callback.answer()
+    try:
+        logger.info(f"📂 show_category_projects: категория={category}, страница={page}, индекс_кат={category_idx}, всего_проектов={len(projects)}")
+        
+        categories = projects_service.get_all_categories()
+        total_categories = len(categories)
+        total_pages = math.ceil(len(projects) / PROJECTS_PER_PAGE) if projects else 1
+        start_idx = page * PROJECTS_PER_PAGE
+        end_idx = start_idx + PROJECTS_PER_PAGE
+        
+        logger.info(f"📊 Пагинация: всего_страниц={total_pages}, текущая_страница={page}, всего_категорий={total_categories}")
+        
+        icons = get_categories_icons()
+        icon = icons.get(category, "📂")
+        
+        text = f"{icon} <b>{category}</b>\n"
+        text += f"Страница <b>{page + 1}/{total_pages}</b> | Всего: <b>{len(projects)}</b> проектов\n\n"
+        
+        if projects[start_idx:end_idx]:
+            for idx, project in enumerate(projects[start_idx:end_idx], start=start_idx + 1):
+                text += f"{idx}. <b>{project.title[:50]}</b>\n"
+                if project.goal:
+                    text += f"    🎯 {project.goal[:70]}...\n"
+                text += "\n"
+        else:
+            text += "❌ В этой категории пока нет проектов."
+        
+        keyboard = get_category_nav_keyboard(projects, page, category_idx, total_categories)
+        logger.info(f"⌨️ Клавиатура создана с {len(keyboard.inline_keyboard)} рядами")
+        
+        if callback.message:
+            logger.info(f"✏️ Отправляем сообщение с редактированием текста сообщения")
+            await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+            await callback.answer()
+        else:
+            logger.warning(f"⚠️ callback.message is None")
+            await callback.answer("❌ Не удалось обновить сообщение. Попробуйте снова.", show_alert=True)
+    except Exception as e:
+        logger.error(f"❌ Ошибка в show_category_projects: {e}", exc_info=True)
+        await callback.answer(f"❌ Ошибка: {str(e)}", show_alert=True)
 
 
 # Обработчик пагинации
@@ -364,21 +406,27 @@ async def handle_pagination(callback: types.CallbackQuery, state: FSMContext):
     try:
         data = await state.get_data()
         callback_data = callback.data.replace("pg_", "")
+        logger.info(f"📄 Пагинация: callback_data={callback.data}, parts_data={callback_data}")
         
         parts = callback_data.split("_")
         cat_idx = int(parts[0])
         page = int(parts[1])
         
+        logger.info(f"📄 Пагинация: парсинг успешен, cat_idx={cat_idx}, page={page}")
+        
         # Получаем категорию по индексу
         categories = projects_service.get_all_categories()
         if cat_idx >= len(categories):
+            logger.warning(f"⚠️ Категория с индексом {cat_idx} не найдена, всего категорий: {len(categories)}")
             await callback.answer("❌ Категория не найдена.", show_alert=True)
             return
         
         category = categories[cat_idx]
         projects = projects_service.get_projects_by_category(category)
+        logger.info(f"📄 Загружена категория '{category}' с {len(projects)} проектами")
         
         if not projects:
+            logger.warning(f"⚠️ В категории '{category}' нет проектов")
             await callback.answer("❌ Проекты не найдены.", show_alert=True)
             return
         
@@ -386,16 +434,18 @@ async def handle_pagination(callback: types.CallbackQuery, state: FSMContext):
         
         # Проверка границ страницы
         if page < 0 or page >= total_pages:
+            logger.warning(f"⚠️ Страница {page} вне диапазона [0, {total_pages-1}]")
             await callback.answer(f"❌ Страница {page + 1} не существует.", show_alert=True)
             return
         
+        logger.info(f"📄 Страница {page} из {total_pages} валидна, обновляем состояние")
         await state.update_data(current_page=page, projects=projects)
         await show_category_projects(callback, category, projects, page, cat_idx)
-    except ValueError:
-        logger.error(f"Ошибка парсинга в handle_pagination: {callback.data}")
+    except ValueError as e:
+        logger.error(f"❌ Ошибка парсинга в handle_pagination: {callback.data}, error={e}")
         await callback.answer("❌ Ошибка при обработке запроса.", show_alert=True)
     except Exception as e:
-        logger.error(f"Ошибка в handle_pagination: {e}")
+        logger.error(f"❌ Ошибка в handle_pagination: {e}", exc_info=True)
         await callback.answer("❌ Ошибка при переходе на страницу.", show_alert=True)
 
 
@@ -869,13 +919,27 @@ async def refresh_data(message: types.Message, state: FSMContext):
 async def back_to_projects_menu(callback: types.CallbackQuery, state: FSMContext):
     """Возврат в меню проектов"""
     
+    logger.info(f"🔙 Возврат в меню проектов")
+    
     await state.set_state(ProjectsForm.viewing_menu)
     
     summary = projects_service.get_projects_summary()
     
-    text = f"🎓 Студенческие Проекты (Всего: {summary['total']})"
+    text = f"🎓 <b>Студенческие Проекты</b>\n"
+    text += f"Всего: <b>{summary['total']}</b> проектов"
     
-    await callback.message.edit_text(text, reply_markup=get_projects_menu_keyboard(), parse_mode="HTML")
+    logger.info(f"📊 Статистика: {summary}")
+    
+    try:
+        await callback.message.edit_text(text, reply_markup=get_projects_menu_keyboard(), parse_mode="HTML")
+        logger.info(f"✅ Меню проектов успешно обновлено")
+    except Exception as e:
+        logger.error(f"❌ Ошибка при обновлении меню проектов: {e}")
+        try:
+            await callback.message.answer(text, reply_markup=get_projects_menu_keyboard(), parse_mode="HTML")
+        except:
+            pass
+    
     await callback.answer()
 
 
@@ -1010,20 +1074,40 @@ async def back_to_main_menu_message(message: types.Message, state: FSMContext):
 
 @router.callback_query(F.data == "back_to_main_menu_projects")
 async def back_to_main_menu_projects_callback(callback: types.CallbackQuery, state: FSMContext):
-    """Возврат в меню проектов (callback handler)"""
-    await back_to_projects_menu(callback, state)
+    """Возврат в главное меню из проектов (callback handler)"""
+    logger.info(f"🔙 Возврат в главное меню из проектов, callback_data={callback.data}")
+    await back_to_main_menu(callback, state)
 
 
 async def back_to_main_menu(message_or_callback: types.Message | types.CallbackQuery, state: FSMContext):
     """Возврат в главное меню"""
     
+    logger.info(f"🔙 back_to_main_menu вызвана, type={type(message_or_callback).__name__}")
+    
     await state.clear()
     
-    text = "🏠 Возвращаемся в главное меню."
+    text = "📋 <b>Главное меню</b>\n\nВыбери, что тебе нужно:"
     
     if isinstance(message_or_callback, types.Message):
-        await message_or_callback.answer(text, reply_markup=get_main_menu_keyboard())
+        logger.info(f"📨 Отправка сообщения в reply")
+        await message_or_callback.answer(text, reply_markup=get_main_menu_keyboard(), parse_mode="HTML")
     else:
-        await message_or_callback.message.edit_text(text, reply_markup=get_main_menu_keyboard())
+        # Для callback - редактируем существующее сообщение
+        logger.info(f"🔄 Редактирование callback сообщения, message_id={message_or_callback.message.message_id if message_or_callback.message else None}")
+        try:
+            if message_or_callback.message:
+                await message_or_callback.message.edit_text(text, reply_markup=get_main_menu_keyboard(), parse_mode="HTML")
+                logger.info(f"✅ Сообщение успешно отредактировано")
+            else:
+                logger.warning(f"⚠️ callback.message отсутствует, отправляем новое сообщение")
+                await message_or_callback.message.answer(text, reply_markup=get_main_menu_keyboard(), parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"❌ Ошибка при редактировании: {e}, отправляем новое сообщение")
+            # Если редактирование не сработало, отправляем новое сообщение
+            try:
+                await message_or_callback.message.answer(text, reply_markup=get_main_menu_keyboard(), parse_mode="HTML")
+            except:
+                pass
+        
         await message_or_callback.answer()
 
