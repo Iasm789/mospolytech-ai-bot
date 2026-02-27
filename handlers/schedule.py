@@ -639,7 +639,7 @@ async def back_to_student_menu(message: types.Message, state: FSMContext):
             [KeyboardButton(text="📋 Услуги МФЦ")],
             [KeyboardButton(text="💰 Стипендии")],
             [KeyboardButton(text="🏘️ Общежития")],
-            [KeyboardButton(text="💼 Студенческие проекты")],
+            [KeyboardButton(text="📚 Студенческие Проекты")],
             [KeyboardButton(text="◀️ Назад")],
         ],
         resize_keyboard=True

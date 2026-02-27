@@ -259,7 +259,7 @@ async def handle_student(message: types.Message):
             [KeyboardButton(text="📋 Услуги МФЦ")],
             [KeyboardButton(text="💰 Стипендии")],
             [KeyboardButton(text="🏘️ Общежития")],
-            [KeyboardButton(text=" Студенческие проекты")],
+            [KeyboardButton(text="📚 Студенческие Проекты")],
             [KeyboardButton(text="◀️ Назад")],
         ],
         resize_keyboard=True
@@ -271,61 +271,7 @@ async def handle_student(message: types.Message):
 
 
 
-@router.message(F.text == "💼 Студенческие проекты")
-async def handle_student_projects(message: types.Message):
-    """Информация о студенческих проектах"""
-    projects_text = """
-💼 **Студенческие проекты и возможности МосПолитеха:**
 
-**🏆 Конкурсы и хакатоны:**
-   • MosPolytech Hackathon - каждый семестр
-   • Конкурс инноваций
-   • Чемпионат по программированию
-   • Конкурс лучших проектов
-
-**🔬 Научные проекты:**
-   • Участие в исследованиях профессоров
-   • Публикация в научных журналах
-   • Конференции и семинары
-   • Гранты на исследования
-
-**💻 Клубы и сообщества:**
-   • IT-клуб МосПолитеха
-   • Robotics Team
-   • Web Development Team
-   • Game Development Studio
-   • Startup Hub
-
-**🌍 Международные программы:**
-   • Обмен студентами (erasmus+)
-   • Совместные проекты с зарубежными ВУЗами
-   • Летние школы за границей
-   • Стажировки в международных компаниях
-
-**🏢 Сотрудничество с компаниями:**
-   • Google, Yandex, VK, Gazprom, Rostelecom
-   • Стажировки и работа
-   • Семинары от практикующих специалистов
-   • Карьерные ярмарки
-
-📝 **Как присоединиться:**
-   1️⃣ Поговори с куратором группы
-   2️⃣ Найди интересующий клуб в соцсетях
-   3️⃣ Приди на собрание или презентацию
-   4️⃣ Начни работу над проектом
-
-Развивайся и достигай своих целей вместе с нами! 🚀
-"""
-    
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📚 Студенту")],
-            [KeyboardButton(text="🏠 Главное меню")],
-        ],
-        resize_keyboard=True
-    )
-    
-    await message.answer(projects_text, parse_mode="HTML", reply_markup=keyboard)
 
 
 @router.message(F.text == "📰 Новости")

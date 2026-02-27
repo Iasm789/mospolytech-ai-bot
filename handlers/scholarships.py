@@ -293,7 +293,7 @@ async def handle_back_to_menu(callback: types.CallbackQuery):
             [KeyboardButton(text="📋 Услуги МФЦ")],
             [KeyboardButton(text="💰 Стипендии")],
             [KeyboardButton(text="🏘️ Общежития")],
-            [KeyboardButton(text=" Студенческие проекты")],
+            [KeyboardButton(text="📚 Студенческие Проекты")],
             [KeyboardButton(text="◀️ Назад")],
         ],
         resize_keyboard=True
