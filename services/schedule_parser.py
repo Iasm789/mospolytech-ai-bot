@@ -68,12 +68,12 @@ class ScheduleParser:
             'X-Requested-With': 'XMLHttpRequest'
         })
         self._all_groups = None
-        self._load_groups_from_csv()
+        self._load_groups()
     
-    def _load_groups_from_csv(self):
-        """Загрузить список групп из CSV файла"""
+    def _load_groups(self):
+        """Загрузить список групп из CSV или через кеш"""
         try:
-            # Определяем путь к файлу CSV
+            # Сначала пытаемся загрузить из CSV (если существует)
             script_dir = os.path.dirname(os.path.abspath(__file__))
             csv_path = os.path.join(script_dir, '..', 'data', 'num_group.csv')
             
@@ -91,17 +91,44 @@ class ScheduleParser:
                 logger.info(f"✅ Загружено {len(self._all_groups)} групп из CSV")
             else:
                 logger.warning(f"⚠️ Файл CSV не найден: {csv_path}")
-                self._all_groups = set()
+                logger.info("💡 Совет: Парсер будет проверять группы через API (медленнее, но работает)")
+                self._all_groups = None  # Будет проверять через API в is_group_valid()
         except Exception as e:
-            logger.error(f"❌ Ошибка при загрузке групп: {e}")
-            self._all_groups = set()
+            logger.error(f"⚠️ Ошибка при загрузке групп из CSV: {e}")
+            logger.info("💡 Парсер переходит на режим проверки через API")
+            self._all_groups = None
     
     def is_group_valid(self, group_number: str) -> bool:
-        """Проверить наличие группы в списке"""
-        return group_number.upper() in {g.upper() for g in self._all_groups}
+        """
+        Проверить наличие группы в списке
+        Если CSV не загружен, пытается получить расписание через API
+        """
+        # Если группы загружены из CSV, проверяем в памяти
+        if self._all_groups is not None:
+            return group_number.upper() in {g.upper() for g in self._all_groups}
+        
+        # Если CSV не загружен, проверяем через API
+        logger.info(f"🔍 Проверка группы {group_number} через API...")
+        try:
+            schedule = self.get_schedule_by_group(group_number)
+            if schedule and schedule.get('days'):
+                logger.info(f"✅ Группа {group_number} валидна")
+                return True
+            else:
+                logger.warning(f"❌ Группа {group_number} не найдена на сервере")
+                return False
+        except Exception as e:
+            logger.error(f"❌ Ошибка при проверке группы: {e}")
+            return False
     
     def get_all_groups(self) -> Set[str]:
-        """Получить все доступные группы"""
+        """
+        Получить все доступные группы
+        Если CSV не загружен, возвращает пустое множество (API не предоставляет полный список)
+        """
+        if self._all_groups is None:
+            logger.warning("⚠️ Список групп не загружен (CSV недоступен и API не предоставляет полный список)")
+            return set()
         return self._all_groups
     
     @staticmethod
