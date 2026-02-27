@@ -165,9 +165,7 @@ async def handle_student_menu(message: types.Message):
         keyboard=[
             [KeyboardButton(text="📅 Расписание занятий")],
             [KeyboardButton(text="📋 Услуги МФЦ")],
-            [KeyboardButton(text="📖 Информация о курсах")],
-            [KeyboardButton(text="🏫 Информация об аудиториях")],
-            [KeyboardButton(text="👥 Контакты деканата")],
+            [KeyboardButton(text="💰 Стипендии")],
             [KeyboardButton(text="💼 Студенческие проекты")],
             [KeyboardButton(text="◀️ Назад")],
         ],
@@ -272,9 +270,7 @@ async def handle_back_to_menu(callback: types.CallbackQuery):
         keyboard=[
             [KeyboardButton(text="📅 Расписание занятий")],
             [KeyboardButton(text="📋 Услуги МФЦ")],
-            [KeyboardButton(text="📖 Информация о курсах")],
-            [KeyboardButton(text="🏫 Информация об аудиториях")],
-            [KeyboardButton(text="👥 Контакты деканата")],
+            [KeyboardButton(text="💰 Стипендии")],
             [KeyboardButton(text="💼 Студенческие проекты")],
             [KeyboardButton(text="◀️ Назад")],
         ],

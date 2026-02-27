@@ -256,11 +256,9 @@ async def handle_student(message: types.Message):
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📅 Расписание занятий")],
-            [KeyboardButton(text="� Услуги МФЦ")],
-            [KeyboardButton(text="�📖 Информация о курсах")],
-            [KeyboardButton(text="🏫 Информация об аудиториях")],
-            [KeyboardButton(text="👥 Контакты деканата")],
-            [KeyboardButton(text="💼 Студенческие проекты")],
+            [KeyboardButton(text="📋 Услуги МФЦ")],
+            [KeyboardButton(text="💰 Стипендии")],
+            [KeyboardButton(text=" Студенческие проекты")],
             [KeyboardButton(text="◀️ Назад")],
         ],
         resize_keyboard=True
@@ -269,147 +267,7 @@ async def handle_student(message: types.Message):
     await message.answer(student_text, reply_markup=keyboard)
 
 
-@router.message(F.text == "📖 Информация о курсах")
-async def handle_courses(message: types.Message):
-    """Информация о курсах"""
-    courses_text = """
-📖 **Основные курсы в МосПолитехе:**
 
-**Бакалавриат (4 года):**
-   • Программирование на Python, C++, Java
-   • Веб-разработка и мобильные приложения
-   • Базы данных и системное администрирование
-   • Математика и физика
-   • Английский язык
-   • И многое другое...
-
-**Магистратура (2 года):**
-   • Искусственный интеллект
-   • Облачные вычисления
-   • Кибербезопасность
-   • Инновационные технологии
-
-**Важная информация:**
-   📚 Обязательные предметы первого курса
-   🎓 Факультативные дисциплины
-   🏆 Возможность участия в научных проектах
-   💻 Доступ к современным лабораториям
-
-📋 Полный каталог курсов: https://mospolytech.ru/courses
-
-Все курсы соответствуют современным требованиям индустрии!
-"""
-    
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📚 Студенту")],
-            [KeyboardButton(text="🏠 Главное меню")],
-        ],
-        resize_keyboard=True
-    )
-    
-    await message.answer(courses_text, parse_mode="HTML", reply_markup=keyboard)
-
-
-@router.message(F.text == "🏫 Информация об аудиториях")
-async def handle_classrooms(message: types.Message):
-    """Информация об аудиториях"""
-    classrooms_text = """
-🏫 **Здания и аудитории МосПолитеха:**
-
-**Основные корпуса:**
-
-🏢 **Корпус 1 - Административный**
-   📍 Ул. Большая Семеновская, д. 38
-   📚 Аудитории для лекций (100-300 мест)
-   💻 Компьютерные классы
-   🖨️ Библиотека
-
-🏢 **Корпус 2 - Учебно-научный**
-   📍 Ул. Большая Семеновская, д. 40
-   🔬 Лаборатории
-   📐 Специализированные аудитории
-   🎓 Кабинеты преподавателей
-
-🏢 **Корпус 3 - Технологический**
-   📍 Сокольники, метро "Красные ворота"
-   ⚙️ Мастерские
-   🔧 Производственные лаборатории
-
-**Как найти аудиторию:**
-   1️⃣ Посмотри информацию в расписании
-   2️⃣ На каждом корпусе есть схема-план
-   3️⃣ Спроси старшекурсников
-   4️⃣ Проверь через мобильное приложение
-
-📲 **Мобильное приложение:**
-   iOS: https://apps.apple.com/mospolytech
-   Android: https://play.google.com/mospolytech
-
-Все здания оборудованы современной техникой!
-"""
-    
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📚 Студенту")],
-            [KeyboardButton(text="🏠 Главное меню")],
-        ],
-        resize_keyboard=True
-    )
-    
-    await message.answer(classrooms_text, parse_mode="HTML", reply_markup=keyboard)
-
-
-@router.message(F.text == "👥 Контакты деканата")
-async def handle_deanery(message: types.Message):
-    """Контакты деканата"""
-    deanery_text = """
-👥 **Контакты деканата факультетов МосПолитеха:**
-
-**📍 Главный деканат**
-   Корпус 1, кабинет 101
-   📧 deanery@mospolytech.ru
-   📞 +7 (495) 223-55-11
-   🕐 Пн-Пт: 09:00-17:00
-
-**🖥️ Факультет информатики**
-   Корпус 2, 3 этаж
-   📧 fit@mospolytech.ru
-   📞 +7 (495) 223-55-22
-
-**⚙️ Факультет техники**
-   Корпус 2, 2 этаж
-   📧 tech@mospolytech.ru
-   📞 +7 (495) 223-55-33
-
-**💼 Факультет экономики**
-   Корпус 1, 5 этаж
-   📧 economics@mospolytech.ru
-   📞 +7 (495) 223-55-44
-
-**🎨 Факультет дизайна**
-   Корпус 3, 1 этаж
-   📧 design@mospolytech.ru
-   📞 +7 (495) 223-55-55
-
-**Важные контакты:**
-   🏥 Медпункт: +7 (495) 223-55-66
-   🎓 Учебный отдел: +7 (495) 223-55-77
-   📚 Библиотека: +7 (495) 223-55-88
-   💼 Отдел трудоустройства: +7 (495) 223-55-99
-
-Мы всегда готовы помочь студентам! 😊
-"""
-    
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📚 Студенту")],
-            [KeyboardButton(text="🏠 Главное меню")],
-        ],
-        resize_keyboard=True
-    )
-    
-    await message.answer(deanery_text, parse_mode="HTML", reply_markup=keyboard)
 
 
 @router.message(F.text == "💼 Студенческие проекты")
