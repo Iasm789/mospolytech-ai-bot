@@ -11,6 +11,7 @@ import re
 
 from services.schedule_parser import parser
 from utils.logger import logger
+from handlers.navigation import get_main_menu_keyboard, get_student_menu_keyboard, BACK_TEXT
 
 router = Router()
 
@@ -32,18 +33,6 @@ LESSON_ICONS = {
     "Экзамен": "📝",
     "Зачёт": "✅",
 }
-
-
-def get_main_menu_keyboard():
-    """Клавиатура главного меню"""
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="👨‍🎓 Абитуриенту"), KeyboardButton(text="📚 Студенту")],
-            [KeyboardButton(text="📰 Новости"), KeyboardButton(text="❓ Помощь")],
-            [KeyboardButton(text="💬 Обратная связь")],
-        ],
-        resize_keyboard=True
-    )
 
 
 @router.message(F.text == "📅 Расписание занятий")

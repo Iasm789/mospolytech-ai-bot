@@ -8,22 +8,16 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 
 from utils.logger import logger
+from handlers.navigation import (
+    get_main_menu_keyboard,
+    get_aspirant_menu_keyboard,
+    get_student_menu_keyboard,
+    SECTIONS,
+    BACK_TEXT
+)
 
 router = Router()
 
-# Клавиатура главного меню
-def get_main_menu_keyboard():
-    """Создание клавиатуры главного меню"""
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="👨‍🎓 Абитуриенту"), KeyboardButton(text="📚 Студенту")],
-            [KeyboardButton(text="🎪 Мероприятия"), KeyboardButton(text="❓ Помощь")],
-            [KeyboardButton(text="💬 Обратная связь")],
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=False
-    )
-    return keyboard
 
 
 @router.message(Command("start"))
@@ -85,17 +79,8 @@ async def handle_aspirant(message: types.Message):
 Выбери, что тебя интересует:
 """
     
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📚 Направления обучения")],
-            [KeyboardButton(text="📋 Процесс поступления")],
-            [KeyboardButton(text="📞 Контакты приемной комиссии")],
-            [KeyboardButton(text="◀️ Назад")],
-        ],
-        resize_keyboard=True
-    )
-    
-    await message.answer(aspirant_text, reply_markup=keyboard)
+    await message.answer(aspirant_text, reply_markup=get_aspirant_menu_keyboard())
+
 
 
 @router.message(F.text == "📚 Направления обучения")
@@ -242,6 +227,13 @@ async def back_to_aspirant(message: types.Message):
     await handle_aspirant(message)
 
 
+@router.message(F.text == BACK_TEXT)
+async def back_to_main_menu(message: types.Message):
+    """Вернуться в главное меню из любого раздела"""
+    await message.answer("📋 Главное меню", reply_markup=get_main_menu_keyboard())
+
+
+
 @router.message(F.text == "📚 Студенту")
 async def handle_student(message: types.Message):
     """Обработчик для студентов"""
@@ -253,175 +245,7 @@ async def handle_student(message: types.Message):
 Выбери интересующий раздел:
 """
     
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📅 Расписание занятий")],
-            [KeyboardButton(text="📋 Услуги МФЦ")],
-            [KeyboardButton(text="💰 Стипендии")],
-            [KeyboardButton(text="🏘️ Общежития")],
-            [KeyboardButton(text="📚 Студенческие Проекты")],
-            [KeyboardButton(text="🎪 ПД. Студенческие мероприятия")],
-            [KeyboardButton(text="◀️ Назад")],
-        ],
-        resize_keyboard=True
-    )
-    
-    await message.answer(student_text, reply_markup=keyboard)
-
-
-
-
-
-
-
-@router.message(F.text == "🎪 ПД. Студенческие мероприятия")
-async def handle_student_events(message: types.Message):
-    """Обработчик для мероприятий студентов"""
-    # Перенаправляем на обработчик мероприятий из events router
-    # Создаем fake message с текстом мероприятий
-    events_text = """
-🎪 <b>ПД. Студенческие мероприятия</b>
-
-Выбери категорию мероприятий, которая тебя интересует:
-"""
-    
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎓 Обучение", callback_data="events_education")],
-        [InlineKeyboardButton(text="💼 Карьера", callback_data="events_careers")],
-        [InlineKeyboardButton(text="🏆 Конкурсы", callback_data="events_competitions")],
-        [InlineKeyboardButton(text="🎭 Культура", callback_data="events_culture")],
-        [InlineKeyboardButton(text="🎉 Студенческая жизнь", callback_data="events_student_life")],
-        [InlineKeyboardButton(text="🤝 Волонтёрство", callback_data="events_volunteering")],
-        [InlineKeyboardButton(text="🔍 Поиск мероприятия", callback_data="events_search")],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_student_menu")],
-    ])
-    
-    await message.answer(events_text, reply_markup=keyboard, parse_mode="HTML")
-
-
-@router.callback_query(F.data == "back_to_student_menu")
-async def back_to_student_menu(callback: types.CallbackQuery):
-    """Вернуться в меню студента"""
-    from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-    student_text = "📚 <b>Информация для студентов</b>\n\nЗдесь ты найдешь всё что нужно для учёбы и жизни в университете.\n\nВыбери интересующий раздел:"
-    
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📅 Расписание занятий")],
-            [KeyboardButton(text="📋 Услуги МФЦ")],
-            [KeyboardButton(text="💰 Стипендии")],
-            [KeyboardButton(text="🏘️ Общежития")],
-            [KeyboardButton(text="📚 Студенческие Проекты")],
-            [KeyboardButton(text="🎪 ПД. Студенческие мероприятия")],
-            [KeyboardButton(text="◀️ Назад")],
-        ],
-        resize_keyboard=True
-    )
-    
-    if callback.message:
-        await callback.message.answer(student_text, reply_markup=keyboard, parse_mode="HTML")
-        try:
-            await callback.message.delete()
-        except:
-            pass
-    await callback.answer()
-
-
-# Обработчики для категорий событий с использованием callbacks
-@router.callback_query(F.data == "events_education")
-async def show_education_events(callback: types.CallbackQuery):
-    """Показать события по обучению"""
-    from services.events_service import get_events_service
-    events_service = get_events_service()
-    
-    events = await events_service.get_events_by_category("education")
-    text = f"🎓 <b>Обучение - Мероприятия</b>\n"
-    text += f"Найдено мероприятий: <b>{len(events)}</b>\n\n"
-    
-    if events:
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[])
-        for idx, event in enumerate(events[:5]):  # Показываем первые 5
-            title = event.get('title', 'Без названия')[:30] + "..."
-            callback_data = f"event:{event.get('id', '')}:education"
-            keyboard.inline_keyboard.append([
-                InlineKeyboardButton(text=f"📌 {title}", callback_data=callback_data)
-            ])
-        keyboard.inline_keyboard.append([
-            InlineKeyboardButton(text="◀️ К категориям", callback_data="back_to_events_menu")
-        ])
-        text += "<i>Нажми на событие для подробностей</i>"
-        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-    else:
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_events_menu")]
-        ])
-        text += "❌ Мероприятия не найдены"
-        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-    
-    await callback.answer()
-
-
-@router.callback_query(F.data == "events_careers")
-async def show_careers_events(callback: types.CallbackQuery):
-    """Показать события по карьере"""
-    from services.events_service import get_events_service
-    events_service = get_events_service()
-    
-    events = await events_service.get_events_by_category("careers")
-    text = f"💼 <b>Карьера - Мероприятия</b>\n"
-    text += f"Найдено мероприятий: <b>{len(events)}</b>\n\n"
-    
-    if events:
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[])
-        for idx, event in enumerate(events[:5]):
-            title = event.get('title', 'Без названия')[:30] + "..."
-            callback_data = f"event:{event.get('id', '')}:careers"
-            keyboard.inline_keyboard.append([
-                InlineKeyboardButton(text=f"📌 {title}", callback_data=callback_data)
-            ])
-        keyboard.inline_keyboard.append([
-            InlineKeyboardButton(text="◀️ К категориям", callback_data="back_to_events_menu")
-        ])
-        text += "<i>Нажми на событие для подробностей</i>"
-        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-    else:
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_events_menu")]
-        ])
-        text += "❌ Мероприятия не найдены"
-        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-    
-    await callback.answer()
-
-
-@router.callback_query(F.data == "back_to_events_menu")
-async def back_to_events_menu_callback(callback: types.CallbackQuery):
-    """Вернуться в меню событий"""
-    events_text = """
-🎪 <b>ПД. Студенческие мероприятия</b>
-
-Выбери категорию мероприятий, которая тебя интересует:
-"""
-    
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎓 Обучение", callback_data="events_education")],
-        [InlineKeyboardButton(text="💼 Карьера", callback_data="events_careers")],
-        [InlineKeyboardButton(text="🏆 Конкурсы", callback_data="events_competitions")],
-        [InlineKeyboardButton(text="🎭 Культура", callback_data="events_culture")],
-        [InlineKeyboardButton(text="🎉 Студенческая жизнь", callback_data="events_student_life")],
-        [InlineKeyboardButton(text="🤝 Волонтёрство", callback_data="events_volunteering")],
-        [InlineKeyboardButton(text="🔍 Поиск мероприятия", callback_data="events_search")],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_student_menu")],
-    ])
-    
-    await callback.message.edit_text(events_text, reply_markup=keyboard, parse_mode="HTML")
-    await callback.answer()
+    await message.answer(student_text, reply_markup=get_student_menu_keyboard())
 
 
 @router.message(F.text == "❓ Помощь")
@@ -440,7 +264,7 @@ async def handle_help(message: types.Message):
             [KeyboardButton(text="🏫 Вопросы про расписание")],
             [KeyboardButton(text="💼 Вопросы о карьере")],
             [KeyboardButton(text="🛠️ Техническая поддержка")],
-            [KeyboardButton(text="◀️ Назад")],
+            [KeyboardButton(text=BACK_TEXT)],
         ],
         resize_keyboard=True
     )

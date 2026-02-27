@@ -11,6 +11,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 from utils.logger import logger
 from services.events_service import get_events_service
+from handlers.navigation import get_events_menu_keyboard, get_main_menu_keyboard
 
 router = Router()
 
@@ -22,22 +23,6 @@ SEARCH_RESULTS_PER_PAGE = 5
 class EventSearchState(StatesGroup):
     """Состояния для поиска мероприятий"""
     waiting_for_search = State()
-
-
-def get_events_menu_keyboard():
-    """Создание клавиатуры меню мероприятий"""
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📋 Все мероприятия")],
-            [KeyboardButton(text="🎓 Обучение"), KeyboardButton(text="💼 Карьера")],
-            [KeyboardButton(text="🏆 Конкурсы"), KeyboardButton(text="🎭 Культура")],
-            [KeyboardButton(text="🎉 Студенческая жизнь"), KeyboardButton(text="🤝 Волонтёрство")],
-            [KeyboardButton(text="🔍 Поиск мероприятия")],
-            [KeyboardButton(text="◀️ Назад")],
-        ],
-        resize_keyboard=True
-    )
-    return keyboard
 
 
 def create_events_keyboard(events: list, category: str, page: int = 0):
@@ -755,5 +740,5 @@ async def back_to_category(query: types.CallbackQuery):
 @router.message(F.text == "◀️ Назад")
 async def back_to_main_menu_from_events(message: types.Message):
     """Вернуться в главное меню из раздела мероприятий"""
-    from handlers.main_menu import get_main_menu_keyboard
     await message.answer("📋 Главное меню", reply_markup=get_main_menu_keyboard())
+
