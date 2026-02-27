@@ -181,10 +181,13 @@ cython_debug/
 .cursorindexingignore
 
 # Игнорировать все файлы .json
-*.json
 
 # Игнорировать все файлы .csv
 *.csv
 
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
+
+*.json
+/.idea
+/data
