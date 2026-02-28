@@ -10,6 +10,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.exceptions import TelegramBadRequest
 
 from utils.logger import logger
+from utils.message_manager import send_or_edit_message, reset_last_message_id
 from services.events_service import get_events_service
 from handlers.navigation import get_events_menu_keyboard, get_main_menu_keyboard
 
@@ -81,7 +82,7 @@ async def handle_events(message: types.Message):
 Выбери категорию мероприятий, которая тебя интересует:
 """
     
-    await message.answer(events_text, reply_markup=get_events_menu_keyboard(), parse_mode="HTML")
+    await send_or_edit_message(message, events_text, reply_markup=get_events_menu_keyboard(), parse_mode="HTML")
 
 
 async def show_all_events(message: types.Message, page: int = 0):
@@ -96,7 +97,7 @@ async def show_all_events(message: types.Message, page: int = 0):
             all_events.append({**event, 'category': category})
     
     if not all_events:
-        await message.answer(
+        await send_or_edit_message(message, 
             f"❌ Мероприятия не найдены.",
             reply_markup=get_events_menu_keyboard()
         )
@@ -171,7 +172,7 @@ async def show_all_events(message: types.Message, page: int = 0):
         InlineKeyboardButton(text="🎪 В меню", callback_data="back_to_events_menu")
     ])
     
-    await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+    await send_or_edit_message(message, text, reply_markup=keyboard, parse_mode="HTML")
 
 
 @router.message(F.text == "📋 Все мероприятия")
@@ -180,12 +181,13 @@ async def handle_all_events(message: types.Message):
     await show_all_events(message, 0)
 
 
+async def show_category_events(message: types.Message, category: str, category_name: str, page: int = 0):
     """Показать события категории с пагинацией"""
     service = get_events_service()
     events = await service.get_events_by_category(category)
     
     if not events:
-        await message.answer(
+        await send_or_edit_message(message, 
             f"❌ Мероприятия в категории '{category_name}' не найдены.",
             reply_markup=get_events_menu_keyboard()
         )
@@ -222,7 +224,7 @@ async def handle_all_events(message: types.Message):
     
     keyboard = create_events_keyboard(events, category, page)
     
-    await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+    await send_or_edit_message(message, text, reply_markup=keyboard, parse_mode="HTML")
 
 
 @router.message(F.text == "🎓 Обучение")
@@ -273,7 +275,7 @@ async def start_search(message: types.Message, state: FSMContext):
         resize_keyboard=True
     )
     
-    await message.answer(
+    await send_or_edit_message(message, 
         "🔍 <b>Поиск мероприятия</b>\n\nВведи название или ключевые слова для поиска:",
         reply_markup=keyboard,
         parse_mode="HTML"
@@ -289,7 +291,7 @@ async def search_events(message: types.Message, state: FSMContext):
     results = await service.search_events(query)
     
     if not results:
-        await message.answer(
+        await send_or_edit_message(message, 
             f"❌ Мероприятия с запросом <b>'{query}'</b> не найдены.",
             reply_markup=get_events_menu_keyboard(),
             parse_mode="HTML"
@@ -351,7 +353,7 @@ async def search_events(message: types.Message, state: FSMContext):
         InlineKeyboardButton(text="� Главное меню", callback_data="back_to_events_menu")
     ])
     
-    await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+    await send_or_edit_message(message, text, reply_markup=keyboard, parse_mode="HTML")
     await state.clear()
 
 
@@ -359,7 +361,7 @@ async def search_events(message: types.Message, state: FSMContext):
 async def cancel_search(message: types.Message, state: FSMContext):
     """Отменить поиск"""
     await state.clear()
-    await message.answer(
+    await send_or_edit_message(message, 
         "❌ Поиск отменён.",
         reply_markup=get_events_menu_keyboard()
     )
@@ -425,7 +427,7 @@ async def show_event_details(query: types.CallbackQuery):
             await query.message.edit_text(full_text, reply_markup=keyboard, parse_mode="HTML")
         except TelegramBadRequest:
             # Если сообщение не изменилось, просто отправляем новое
-            await query.message.answer(full_text, reply_markup=keyboard, parse_mode="HTML")
+            await query.message.edit_text(full_text, reply_markup=keyboard, parse_mode="HTML")
         
         await query.answer("✅ Информация о событии загружена")
         
@@ -653,7 +655,7 @@ async def handle_search_page_navigation(query: types.CallbackQuery, state: FSMCo
             keyboard.inline_keyboard.append(pagination_row)
         
         keyboard.inline_keyboard.append([
-            InlineKeyboardButton(text="� Главное меню", callback_data="back_to_events_menu")
+            InlineKeyboardButton(text="🎪 Главное меню", callback_data="back_to_events_menu")
         ])
         
         await query.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
@@ -662,6 +664,12 @@ async def handle_search_page_navigation(query: types.CallbackQuery, state: FSMCo
     except Exception as e:
         logger.error(f"Ошибка при навигации по страницам поиска: {e}")
         await query.answer("❌ Произошла ошибка")
+
+
+@router.callback_query(F.data.startswith("search_page:"))
+async def search_page_navigation(query: types.CallbackQuery, state: FSMContext):
+    """Обработчик навигации по страницам результатов поиска"""
+    await handle_search_page_navigation(query, state)
 
 
 @router.callback_query(F.data == "back_to_events_menu")
@@ -676,6 +684,7 @@ async def back_to_events_menu(query: types.CallbackQuery):
     except Exception:
         pass
     
+    # Отправляем новое сообщение (edit_text не поддерживает ReplyKeyboardMarkup)
     await query.message.answer(text, reply_markup=get_main_menu_keyboard(), parse_mode="HTML")
     await query.answer()
 
@@ -740,5 +749,13 @@ async def back_to_category(query: types.CallbackQuery):
 @router.message(F.text == "◀️ Назад")
 async def back_to_main_menu_from_events(message: types.Message):
     """Вернуться в главное меню из раздела мероприятий"""
-    await message.answer("📋 Главное меню", reply_markup=get_main_menu_keyboard())
+    await send_or_edit_message(message, "📋 <b>Главное меню</b>", reply_markup=get_main_menu_keyboard(), parse_mode="HTML")
+
+
+
+@router.message(F.text == "◀️ Назад")
+async def back_to_main_menu_from_events(message: types.Message):
+    """Вернуться в главное меню из раздела мероприятий"""
+    await send_or_edit_message(message, "📋 Главное меню", reply_markup=get_main_menu_keyboard())
+
 

@@ -1,187 +1,291 @@
 """
 Сервис для управления мероприятиями
+
+Этот модуль обеспечивает загрузку, фильтрацию, поиск и форматирование
+информации о мероприятиях МосПолитеха.
 """
 
 import json
 import asyncio
 import re
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from datetime import datetime
+
 from utils.logger import logger
 
 
 class EventsService:
-    """Сервис для работы с мероприятиями"""
+    """
+    Сервис для работы с мероприятиями
+    
+    Обеспечивает загрузку, кэширование, поиск и форматирование
+    информации о мероприятиях.
+    """
+    
+    # Поддерживаемые категории мероприятий
+    CATEGORIES = {
+        "education": "🎓 Обучение",
+        "careers": "💼 Карьера",
+        "competitions": "🏆 Конкурсы",
+        "exhibitions": "🖼 Выставки",
+        "culture": "🎭 Культура",
+        "volunteering": "🤝 Волонтёрство",
+        "student_life": "🎉 Студенческая жизнь"
+    }
+    
+    # Разделители для очистки заголовков
+    EMOJI_SEPARATORS = '🎤🎭🏆🎪🎓💼🖼🎉🤝'
+    
+    # Максимальная длина описания в карточке
+    MAX_DESCRIPTION_LENGTH = 300
     
     def __init__(self, data_file: str = "docs/events_data.json"):
         self.data_file = Path(data_file)
-        self.events = {}
-        self.categories = {
-            "education": "🎓 Обучение",
-            "careers": "💼 Карьера",
-            "competitions": "🏆 Конкурсы",
-            "exhibitions": "🖼 Выставки",
-            "culture": "🎭 Культура",
-            "volunteering": "🤝 Волонтёрство",
-            "student_life": "🎉 Студенческая жизнь"
-        }
+        self.events: Dict[str, List[Dict]] = {}
+        self.categories = self.CATEGORIES
+        self._is_loaded = False
+        # Запускаем загрузку данных асинхронно
         asyncio.create_task(self._load_events())
     
-    async def _load_events(self):
-        """Загрузить события из файла"""
+    async def _load_events(self) -> bool:
+        """
+        Загрузить события из файла
+        
+        Returns:
+            bool: True если загрузка успешна, False в противном случае
+        """
         try:
-            if self.data_file.exists():
-                with open(self.data_file, 'r', encoding='utf-8') as f:
-                    self.events = json.load(f)
-                logger.info(f"✅ Загружено мероприятий из {self.data_file}")
-            else:
-                logger.warning(f"⚠️ Файл {self.data_file} не найден")
+            if not self.data_file.exists():
+                logger.warning(f"⚠️ Файл {self.data_file} не найден. Инициализируем пустые категории.")
                 self.events = {cat: [] for cat in self.categories}
-        except Exception as e:
-            logger.error(f"❌ Ошибка при загрузке мероприятий: {e}")
+                self._is_loaded = True
+                return False
+            
+            with open(self.data_file, 'r', encoding='utf-8') as f:
+                loaded_data = json.load(f)
+                
+            # Валидируем загруженные данные
+            if not isinstance(loaded_data, dict):
+                logger.error(f"❌ Неверный формат данных в {self.data_file}")
+                self.events = {cat: [] for cat in self.categories}
+                self._is_loaded = True
+                return False
+            
+            self.events = loaded_data
+            self._is_loaded = True
+            
+            total_events = sum(len(events) for events in self.events.values())
+            logger.info(f"✅ Загружено {total_events} мероприятий из {self.data_file}")
+            return True
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ Ошибка при парсинге JSON: {e}")
             self.events = {cat: [] for cat in self.categories}
+            self._is_loaded = True
+            return False
+        except Exception as e:
+            logger.error(f"❌ Ошибка при загрузке мероприятий: {e}", exc_info=True)
+            self.events = {cat: [] for cat in self.categories}
+            self._is_loaded = True
+            return False
+    
+    async def _ensure_loaded(self) -> None:
+        """Убедиться, что данные загружены"""
+        if not self._is_loaded:
+            await asyncio.sleep(0.1)  # Небольшая задержка для завершения загрузки
+            if not self._is_loaded:
+                await self._load_events()
     
     async def get_all_events(self) -> Dict[str, List[Dict]]:
-        """Получить все события"""
-        # Убедимся, что данные загружены
-        if not self.events:
-            await self._load_events()
+        """
+        Получить все события из всех категорий
+        
+        Returns:
+            Dict: Словарь где ключи - категории, значения - списки событий
+        """
+        await self._ensure_loaded()
         return self.events
     
     async def get_events_by_category(self, category: str) -> List[Dict]:
-        """Получить события по категориям"""
-        if not self.events:
-            await self._load_events()
+        """
+        Получить события конкретной категории
         
-        # Получаем события из указанной категории
+        Args:
+            category: Идентификатор категории
+        
+        Returns:
+            List: Отсортированный список событий в категории
+        """
+        await self._ensure_loaded()
+        
         events = self.events.get(category, [])
+        if not events:
+            logger.debug(f"ℹ️ Категория '{category}' не содержит событий")
+            return []
         
-        # Сортируем по дате (попытаемся спарсить дату)
+        # Сортируем события по дате
         return self._sort_events_by_date(events)
     
     def _sort_events_by_date(self, events: List[Dict]) -> List[Dict]:
-        """Сортировать события по дате с улучшенным парсингом"""
+        """
+        Сортировать события по дате в возрастающем порядке
+        
+        Args:
+            events: Список событий для сортировки
+        
+        Returns:
+            List: Отсортированный список
+        """
         try:
             def parse_date(event_time: str) -> datetime:
-                """Попытаться спарсить дату из строки с поддержкой многих форматов"""
-                time_str = str(event_time) if not isinstance(event_time, str) else event_time
+                """Спарсить дату из различных форматов"""
+                time_str = str(event_time) if event_time else ""
                 
-                if "не указана" in time_str.lower() or "время не указано" in time_str.lower():
-                    return datetime(2099, 12, 31)  # Неизвестные дата ставим в конец
+                # События без даты помещаем в конец
+                if not time_str or "не указана" in time_str.lower() or "время не указано" in time_str.lower():
+                    return datetime(2099, 12, 31)
                 
-                # Форматы которые мы проверяем:
-                # 1. ДД.ММ.YYYY (классический формат)
-                # 2. ДД.ММ.YYYY HH:MM
-                # 3. ДД-ММ-YYYY
-                # 4. YYYY-MM-DD
+                # Пытаемся найти дату в формате ДД.ММ.YYYY
+                date_pattern = r'(\d{1,2})\.(\d{1,2})\.(\d{4})'
+                match = re.search(date_pattern, time_str)
                 
-                parts = time_str.split()
+                if match:
+                    try:
+                        day, month, year = int(match.group(1)), int(match.group(2)), int(match.group(3))
+                        return datetime(year, month, day)
+                    except (ValueError, IndexError):
+                        pass
                 
-                for part in parts:
-                    # Проверяем формат ДД.ММ.YYYY
-                    if '.' in part and len(part) >= 10:
-                        try:
-                            date_part = part.split()[0] if ' ' in part else part
-                            if date_part.count('.') == 2:
-                                day, month, year = date_part.split('.')
-                                return datetime(int(year), int(month), int(day))
-                        except (ValueError, IndexError):
-                            pass
-                    
-                    # Проверяем формат ДД-ММ-YYYY
-                    if '-' in part and len(part) >= 8:
-                        try:
-                            date_parts = part.split('-')
-                            if len(date_parts) == 3:
-                                # Определяем какой формат: ДД-ММ-YYYY или YYYY-ММ-ДД
-                                if int(date_parts[0]) > 31:
-                                    # YYYY-MM-DD
-                                    return datetime(int(date_parts[0]), int(date_parts[1]), int(date_parts[2]))
-                                else:
-                                    # DD-MM-YYYY
-                                    return datetime(int(date_parts[2]), int(date_parts[1]), int(date_parts[0]))
-                        except (ValueError, IndexError):
-                            pass
+                # Если формат ДД-ММ-YYYY
+                date_pattern_dash = r'(\d{1,2})-(\d{1,2})-(\d{4})'
+                match = re.search(date_pattern_dash, time_str)
+                if match:
+                    try:
+                        day, month, year = int(match.group(1)), int(match.group(2)), int(match.group(3))
+                        return datetime(year, month, day)
+                    except (ValueError, IndexError):
+                        pass
                 
-                # Если не смогли спарсить дату, возвращаем текущую дату
+                # События с неспарсенной датой помещаем в конец
                 return datetime(2099, 12, 31)
             
             return sorted(events, key=lambda e: parse_date(e.get('time', '')))
         except Exception as e:
-            logger.error(f"❌ Ошибка при сортировке событий: {e}")
+            logger.warning(f"⚠️ Ошибка при сортировке событий: {e}")
             return events
     
-    async def get_event_by_id(self, event_id: str) -> Optional[Dict]:
-        """Получить событие по ID"""
-        if not self.events:
-            await self._load_events()
+    async def get_event_by_id(self, event_id: str) -> Optional[Tuple[Dict, str]]:
+        """
+        Получить событие по ID
+        
+        Args:
+            event_id: Идентификатор события
+        
+        Returns:
+            Tuple: (событие, категория) или (None, None)
+        """
+        if not event_id:
+            return None, None
+        
+        await self._ensure_loaded()
         
         for category, events in self.events.items():
             for event in events:
                 if event.get('id') == event_id:
                     return event, category
         
+        logger.debug(f"ℹ️ Событие '{event_id}' не найдено")
         return None, None
     
-    async def search_events(self, query: str) -> List[tuple]:
-        """Найти события по запросу с улучшенным поиском и ранжированием"""
-        if not self.events:
-            await self._load_events()
+    async def search_events(self, query: str) -> List[Tuple[Dict, str]]:
+        """
+        Найти события по запросу с ранжированием по релевантности
         
-        query_lower = query.lower()
-        results_with_score = []
+        Args:
+            query: Поисковый запрос
         
-        # Разбиваем запрос на отдельные слова для более гибкого поиска
-        query_words = query_lower.split()
+        Returns:
+            List: Список (событие, категория) отсортированный по релевантности
+        """
+        if not query or not query.strip():
+            return []
+        
+        await self._ensure_loaded()
+        
+        query_lower = query.lower().strip()
+        results_with_score: List[Tuple[Tuple[Dict, str], int]] = []
+        
+        # Разбиваем запрос на слова для поиска
+        query_words = [w for w in query_lower.split() if len(w) > 2]
         
         for category, events in self.events.items():
             for event in events:
-                title = event.get('title', '').lower()
-                desc = event.get('desc', '').lower()
-                place = event.get('place', '').lower()
+                score = self._calculate_search_score(event, query_lower, query_words)
                 
-                score = 0
-                
-                # Проверяем точное совпадение в названии (высший приоритет)
-                if query_lower in title:
-                    score += 10
-                
-                # Проверяем совпадение отдельных слов в названии
-                for word in query_words:
-                    if len(word) > 2:  # Игнорируем предлоги и короткие слова
-                        if word in title:
-                            score += 3
-                
-                # Проверяем совпадение в описании
-                for word in query_words:
-                    if len(word) > 2:
-                        if word in desc:
-                            score += 1
-                
-                # Проверяем совпадение в месте проведения
-                if query_lower in place:
-                    score += 2
-                
-                # Если есть хоть какое-то совпадение, добавляем в результаты
                 if score > 0:
                     results_with_score.append(((event, category), score))
         
-        # Сортируем по релевантности (больший score = выше в списке)
+        # Сортируем по релевантности (больший score = выше)
         results_with_score.sort(key=lambda x: x[1], reverse=True)
         
-        # Возвращаем только события без scores
+        logger.debug(f"🔍 Найдено {len(results_with_score)} результатов для '{query}'")
         return [item[0] for item in results_with_score]
     
+    def _calculate_search_score(self, event: Dict, query: str, query_words: List[str]) -> int:
+        """
+        Вычислить релевантность события для поиска
+        
+        Args:
+            event: Событие
+            query: Полный поисковый запрос в нижнем регистре
+            query_words: Отдельные слова из запроса
+        
+        Returns:
+            int: Релевантность (чем больше, тем лучше)
+        """
+        score = 0
+        
+        title = event.get('title', '').lower()
+        desc = event.get('desc', '').lower()
+        place = event.get('place', '').lower()
+        
+        # Точное совпадение в названии (высший приоритет)
+        if query in title:
+            score += 30
+        
+        # Совпадение отдельных слов в названии
+        for word in query_words:
+            if word in title:
+                score += 10
+        
+        # Совпадение в описании
+        for word in query_words:
+            if word in desc:
+                score += 3
+        
+        # Совпадение в месте проведения
+        if query in place:
+            score += 5
+        
+        return score
+    
     def parse_event_date(self, time_str: str) -> Optional[datetime]:
-        """Спарсить дату события из строки"""
-        if not time_str or "не указана" in time_str.lower() or "время не указано" in time_str.lower():
+        """
+        Спарсить дату события из строки
+        
+        Args:
+            time_str: Строка с датой/временем
+        
+        Returns:
+            datetime: Распарсенная дата или None
+        """
+        if not time_str or "не указана" in str(time_str).lower() or "время не указано" in str(time_str).lower():
             return None
         
         time_str = str(time_str).strip()
         
-        # Извлекаем первую дату из строки (может быть диапазон типа "24.11.2025 по 28.11.2025")
-        # Ищем первое число в формате ДД.ММ.YYYY
+        # Ищем первую дату в формате ДД.ММ.YYYY
         date_pattern = r'(\d{1,2})\.(\d{1,2})\.(\d{4})'
         match = re.search(date_pattern, time_str)
         
@@ -195,10 +299,17 @@ class EventsService:
         return None
     
     async def remove_old_events(self, days: int = 30) -> int:
-        """Удалить события, которые были более N дней назад"""
+        """
+        Удалить события, прошедшие более N дней назад
+        
+        Args:
+            days: Количество дней (события старше удаляются)
+        
+        Returns:
+            int: Количество удаленных событий
+        """
         try:
-            if not self.events:
-                await self._load_events()
+            await self._ensure_loaded()
             
             removed_count = 0
             current_date = datetime.now()
@@ -218,9 +329,10 @@ class EventsService:
                     days_diff = (current_date - event_date).days
                     
                     if days_diff > days:
+                        title = event.get('title', 'Unknown')
                         logger.warning(
                             f"⚠️ Удалено старое событие (более {days} дней назад - {days_diff} дней): "
-                            f"{event.get('title')} [{event_date.strftime('%d.%m.%Y')}]"
+                            f"{title} [{event_date.strftime('%d.%m.%Y')}]"
                         )
                         removed_count += 1
                     else:
@@ -234,24 +346,64 @@ class EventsService:
             
             return removed_count
         except Exception as e:
-            logger.error(f"❌ Ошибка при удалении старых событий: {e}")
+            logger.error(f"❌ Ошибка при удалении старых событий: {e}", exc_info=True)
             return 0
     
-    async def _save_events(self):
-        """Сохранить события в файл"""
+    async def _save_events(self) -> bool:
+        """
+        Сохранить события в файл
+        
+        Returns:
+            bool: True если сохранение успешно
+        """
         try:
+            # Создаем директорию если не существует
+            self.data_file.parent.mkdir(parents=True, exist_ok=True)
+            
             with open(self.data_file, 'w', encoding='utf-8') as f:
                 json.dump(self.events, f, ensure_ascii=False, indent=2)
+            
             logger.info(f"✅ События сохранены в {self.data_file}")
+            return True
         except Exception as e:
-            logger.error(f"❌ Ошибка при сохранении мероприятий: {e}")
+            logger.error(f"❌ Ошибка при сохранении мероприятий: {e}", exc_info=True)
+            return False
     
     def get_category_name(self, category: str) -> str:
-        """Получить название категории"""
+        """
+        Получить отображаемое название категории
+        
+        Args:
+            category: Идентификатор категории
+        
+        Returns:
+            str: Название с эмодзи
+        """
         return self.categories.get(category, category)
     
+    def _clean_title(self, title: str) -> str:
+        """
+        Очистить заголовок от лишних эмодзи в начале
+        
+        Args:
+            title: Исходный заголовок
+        
+        Returns:
+            str: Очищенный заголовок
+        """
+        return title.lstrip(self.EMOJI_SEPARATORS).strip()
+    
     def format_event(self, event: Dict, category: str) -> str:
-        """Форматировать событие для вывода"""
+        """
+        Форматировать событие для вывода
+        
+        Args:
+            event: Данные события
+            category: Категория события
+        
+        Returns:
+            str: Отформатированная строка
+        """
         title = event.get('title', 'Без названия')
         time_str = event.get('time', 'Время не указано')
         place = event.get('place', 'Место не указано')
@@ -278,48 +430,50 @@ class EventsService:
         return text
     
     def format_event_short(self, event: Dict, category: str) -> str:
-        """Форматировать событие кратко"""
+        """
+        Форматировать событие кратко (одна строка)
+        
+        Args:
+            event: Данные события
+            category: Категория события
+        
+        Returns:
+            str: Краткая строка события
+        """
         title = event.get('title', 'Без названия')
         time_str = event.get('time', 'Время не указано')
         place = event.get('place', 'Место не указано')
-        event_id = event.get('id', '')
         
-        text = f"📌 <b>{title}</b>\n"
-        text += f"🕒 {time_str} | 📍 {place}\n"
-        
-        if event_id:
-            text += f"ID: {event_id}"
-        
-        return text
+        return f"📌 <b>{title}</b>\n🕒 {time_str} | 📍 {place}"
     
     def format_event_card(self, event: Dict, category: str) -> str:
-        """Форматировать событие как красивую карточку"""
-        title = event.get('title', 'Без названия').strip()
+        """
+        Форматировать событие как красивую карточку
+        
+        Args:
+            event: Данные события
+            category: Категория события
+        
+        Returns:
+            str: Отформатированная карточка события
+        """
+        title = self._clean_title(event.get('title', 'Без названия'))
         time_str = event.get('time', 'Время не указано').strip()
         place = event.get('place', 'Место не указано').strip()
         desc = event.get('desc', '').strip()
         
-        # Очищаем заголовок от лишних эмодзи, если они повторяются в категории
-        title = title.lstrip('🎤🎭🏆🎪🎓💼🖼🎉🤝')
-        
-        # Создаем красивую карточку
         text = "━━━━━━━━━━━━━━━━━━━━━\n"
         text += f"<b>{title}</b>\n"
         text += "━━━━━━━━━━━━━━━━━━━━━\n\n"
         
-        # Время
         text += f"⏰ <b>Время:</b>\n{time_str}\n\n"
-        
-        # Место
         text += f"📍 <b>Место:</b>\n{place}\n\n"
-        
-        # Категория
         text += f"🏷️ <b>Категория:</b> {self.get_category_name(category)}\n\n"
         
-        # Описание (максимум 300 символов)
+        # Описание с лимитом
         if desc:
-            desc_preview = desc[:300]
-            if len(desc) > 300:
+            desc_preview = desc[:self.MAX_DESCRIPTION_LENGTH]
+            if len(desc) > self.MAX_DESCRIPTION_LENGTH:
                 desc_preview += "..."
             text += f"📝 <b>Описание:</b>\n{desc_preview}\n\n"
         
@@ -331,32 +485,31 @@ class EventsService:
         return text
     
     def format_event_full(self, event: Dict, category: str) -> str:
-        """Форматировать полную информацию о событии"""
-        title = event.get('title', 'Без названия').strip()
+        """
+        Форматировать полную информацию о событии
+        
+        Args:
+            event: Данные события
+            category: Категория события
+        
+        Returns:
+            str: Полная информация о событии
+        """
+        title = self._clean_title(event.get('title', 'Без названия'))
         time_str = event.get('time', 'Время не указано').strip()
         place = event.get('place', 'Место не указано').strip()
         desc = event.get('desc', '').strip()
         source = event.get('source', '')
         telegram_url = event.get('telegram_url', '')
-        confidence = event.get('confidence', 0.8)
-        
-        # Очищаем заголовок от лишних эмодзи
-        title = title.lstrip('🎤🎭🏆🎪🎓💼🖼🎉🤝')
         
         text = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         text += f"<b>✨ {title}</b>\n"
         text += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         
-        # Дата и время
         text += f"<b>📅 Дата и время:</b>\n  {time_str}\n\n"
-        
-        # Место проведения
         text += f"<b>📍 Место:</b>\n  {place}\n\n"
-        
-        # Категория
         text += f"<b>🏷️ Категория:</b> {self.get_category_name(category)}\n\n"
         
-        # Полное описание
         if desc:
             text += f"<b>📝 Описание:</b>\n{desc}\n\n"
         
@@ -364,7 +517,6 @@ class EventsService:
         if source or telegram_url:
             text += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             if source:
-                # Улучшаем читаемость источника
                 source_display = source.replace('_v2_events', '').replace('_', ' ').title()
                 text += f"<b>📢 Источник:</b> {source_display}\n"
             if telegram_url:
