@@ -11,6 +11,7 @@ import re
 
 from services.schedule_parser import parser
 from utils.logger import logger
+from utils.validators import InputValidator, validate_group_or_error
 from handlers.navigation import get_main_menu_keyboard, get_student_menu_keyboard, BACK_TEXT
 
 router = Router()
@@ -61,66 +62,79 @@ async def ask_for_group(message: types.Message, state: FSMContext):
 @router.message(ScheduleForm.waiting_for_group)
 async def get_group_ask_period(message: types.Message, state: FSMContext):
     """Получить группу и запросить период"""
-    group = message.text.strip().upper()
-    
-    # Проверяем если это отмена
-    if message.text == "◀️ Отмена":
-        await state.clear()
-        await message.answer("❌ Отмена", reply_markup=get_main_menu_keyboard())
-        return
-    
-    # Проверяем формат группы
-    if not group or len(group) < 4:
-        await message.answer("❌ Неверный формат группы. Используй формат: XXX-YYYY")
-        return
-    
-    # Проверяем наличие группы в списке
-    if not parser.is_group_valid(group):
+    try:
+        # Проверяем если это отмена
+        if message.text == "◀️ Отмена":
+            await state.clear()
+            await message.answer("❌ Отмена", reply_markup=get_main_menu_keyboard())
+            return
+        
+        group = message.text.strip().upper()
+        
+        # Валидируем формат группы
+        error_message = validate_group_or_error(group)
+        if error_message:
+            await message.answer(error_message)
+            return  # Остаемся в том же состоянии для переввода
+        
+        # Нормализуем номер группы
+        group = InputValidator.sanitize_group_number(group)
+        
+        # Проверяем наличие группы в списке
+        if not parser.is_group_valid(group):
+            await message.answer(
+                f"❌ Группа <b>{group}</b> не найдена в списке доступных.\n\n"
+                "Возможные причины:\n"
+                "• Ошибка в номере группы\n"
+                "• Расписание для этой группы недоступно\n\n"
+                "Проверь номер и попробуй снова.",
+                parse_mode="HTML"
+            )
+            return  # Остаемся в том же состоянии для переввода
+        
+        # Сохраняем группу в контексте
+        await state.update_data(group=group)
+        
+        # Переходим на выбор периода
+        await state.set_state(ScheduleForm.waiting_for_period)
+        
+        keyboard = ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="📅 На сегодня"), KeyboardButton(text="📆 На завтра")],
+                [KeyboardButton(text="📋 На эту неделю"), KeyboardButton(text="📋 На следующую неделю")],
+                [KeyboardButton(text="📅 Выбрать дату"), KeyboardButton(text="📋 На месяц")],
+                [KeyboardButton(text="◀️ Отмена")],
+            ],
+            resize_keyboard=True
+        )
+        
+        today = datetime.now()
+        today_date = today.strftime("%d.%m.%Y")
+        days_ru = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
+        today_day = days_ru[today.weekday()]
+        tomorrow = today + timedelta(days=1)
+        tomorrow_date = tomorrow.strftime("%d.%m.%Y")
+        tomorrow_day = days_ru[tomorrow.weekday()]
+        
+        period_text = (
+            f"📅 <b>Выбери период для группы {group}</b>\n\n"
+            f"<b>Текущая дата:</b> {today_date} ({today_day})\n"
+            f"<b>Завтра:</b> {tomorrow_date} ({tomorrow_day})"
+        )
+        
         await message.answer(
-            f"❌ Группа <b>{group}</b> не найдена в списке доступных.\n\n"
-            "Возможные причины:\n"
-            "• Ошибка в номере группы\n"
-            "• Расписание для этой группы недоступно\n\n"
-            "Проверь номер и попробуй снова.",
+            period_text,
+            reply_markup=keyboard,
             parse_mode="HTML"
         )
-        return
-    
-    # Сохраняем группу в контексте
-    await state.update_data(group=group)
-    
-    # Переходим на выбор периода
-    await state.set_state(ScheduleForm.waiting_for_period)
-    
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📅 На сегодня"), KeyboardButton(text="📆 На завтра")],
-            [KeyboardButton(text="📋 На эту неделю"), KeyboardButton(text="📋 На следующую неделю")],
-            [KeyboardButton(text="📅 Выбрать дату"), KeyboardButton(text="📋 На месяц")],
-            [KeyboardButton(text="◀️ Отмена")],
-        ],
-        resize_keyboard=True
-    )
-    
-    today = datetime.now()
-    today_date = today.strftime("%d.%m.%Y")
-    days_ru = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
-    today_day = days_ru[today.weekday()]
-    tomorrow = today + timedelta(days=1)
-    tomorrow_date = tomorrow.strftime("%d.%m.%Y")
-    tomorrow_day = days_ru[tomorrow.weekday()]
-    
-    period_text = (
-        f"📅 <b>Выбери период для группы {group}</b>\n\n"
-        f"<b>Текущая дата:</b> {today_date} ({today_day})\n"
-        f"<b>Завтра:</b> {tomorrow_date} ({tomorrow_day})"
-    )
-    
-    await message.answer(
-        period_text,
-        reply_markup=keyboard,
-        parse_mode="HTML"
-    )
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка при обработке номера группы: {e}", exc_info=True)
+        await state.clear()
+        await message.answer(
+            "⚠️ Произошла ошибка. Пожалуйста, начни заново.",
+            reply_markup=get_main_menu_keyboard()
+        )
 
 
 def format_schedule_for_period(schedule: dict, group: str, period: str, request_date: datetime = None) -> str:

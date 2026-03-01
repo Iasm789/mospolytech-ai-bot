@@ -45,6 +45,8 @@ class EventsService:
         self.events: Dict[str, List[Dict]] = {}
         self.categories = self.CATEGORIES
         self._is_loaded = False
+        # Lock для защиты от race conditions при одновременной загрузке
+        self._load_lock = asyncio.Lock()
         # Запускаем загрузку данных асинхронно
         asyncio.create_task(self._load_events())
     
@@ -91,11 +93,13 @@ class EventsService:
             return False
     
     async def _ensure_loaded(self) -> None:
-        """Убедиться, что данные загружены"""
+        """Убедиться, что данные загружены (потокобезопасно)"""
         if not self._is_loaded:
-            await asyncio.sleep(0.1)  # Небольшая задержка для завершения загрузки
-            if not self._is_loaded:
-                await self._load_events()
+            # Используем lock для предотвращения race conditions
+            async with self._load_lock:
+                # Двойная проверка паттерна (double-checked locking)
+                if not self._is_loaded:
+                    await self._load_events()
     
     async def get_all_events(self) -> Dict[str, List[Dict]]:
         """
