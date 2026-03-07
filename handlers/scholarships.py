@@ -295,6 +295,7 @@ async def handle_back_to_menu(callback: types.CallbackQuery):
             [KeyboardButton(text="💰 Стипендии")],
             [KeyboardButton(text="🏘️ Общежития")],
             [KeyboardButton(text="📚 Студенческие Проекты")],
+            [KeyboardButton(text="📖 Библиотека")],
             [KeyboardButton(text="◀️ Назад")],
         ],
         resize_keyboard=True
@@ -591,29 +592,5 @@ async def handle_back_to_scholarships(callback: types.CallbackQuery):
     except Exception as e:
         logger.error(f"Ошибка: {e}")
     
-    await callback.answer()
-
-@router.callback_query(F.data == "sch_back_to_menu")
-async def handle_back_to_menu(callback: types.CallbackQuery):
-    """Возврат в раздел студента"""
-    student_text = "📚 <b>Информация для студентов</b>\n\nЗдесь ты найдешь всё что нужно для учёбы и жизни в университете.\n\nВыбери интересующий раздел:"
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📅 Расписание занятий")],
-            [KeyboardButton(text="📋 Услуги МФЦ")],
-            [KeyboardButton(text="💰 Стипендии")],
-            [KeyboardButton(text="🏘️ Общежития")],
-            [KeyboardButton(text="📚 Студенческие Проекты")],
-            [KeyboardButton(text="◀️ Назад")],
-        ],
-        resize_keyboard=True
-    )
-    
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-    
-    await callback.message.edit_text(student_text, reply_markup=keyboard, parse_mode="HTML")
     await callback.answer()
 

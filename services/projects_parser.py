@@ -21,7 +21,7 @@ try:
     from webdriver_manager.chrome import ChromeDriverManager
     from selenium.webdriver.chrome.service import Service
     SELENIUM_AVAILABLE = True
-except:
+except ImportError:
     SELENIUM_AVAILABLE = False
 
 from models.project import Project, ProjectCategory, ProjectsData
@@ -169,11 +169,12 @@ class ProjectsParser:
                         lambda d: len(d.find_elements(By.CSS_SELECTOR, "a[href*='tproduct']")) > 0
                     )
                     logger.info(f"  ✅ Найдены элементы с tproduct")
-                except:
-                    logger.info(f"  ℹ️  Timeout ожидания tproduct, берем то что есть...")
+                except Exception as wait_error:
+                    logger.info(f"  ℹ️  Timeout ожидания tproduct, берем то что есть... ({self.__class__.__name__})")
+                    logger.debug(f"  Причина: {wait_error}")
                 
                 # Даем дополнительное время на рендеринг
-                time.sleep(2)
+                # Получаем данные сразу после рендеринга
                 
                 html = driver.page_source
                 driver.quit()
@@ -186,8 +187,8 @@ class ProjectsParser:
                 try:
                     if driver:
                         driver.quit()
-                except:
-                    pass
+                except Exception as cleanup_error:
+                    logger.debug(f"  Не удалось закрыть драйвер: {cleanup_error}")
                 
                 if attempt < max_retries - 1:
                     time.sleep(2)  # Задержка перед повторной попыткой
@@ -307,6 +308,9 @@ class ProjectsParser:
             Найденный текст или None
         """
         try:
+            if not text or not isinstance(text, str):
+                return None
+                
             start_idx = text.find(start_marker)
             end_idx = text.find(end_marker)
             
@@ -314,7 +318,8 @@ class ProjectsParser:
                 result = text[start_idx + len(start_marker):end_idx].strip()
                 return result if result else None
             return None
-        except:
+        except (AttributeError, TypeError) as e:
+            logger.debug(f"Ошибка при извлечении секции: {e}")
             return None
     
     def _parse_tasks(self, tasks_text: str) -> List[str]:

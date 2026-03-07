@@ -5,7 +5,7 @@
 import json
 from pathlib import Path
 from aiogram import Router, types, F
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 
 from utils.logger import logger
 from utils.message_manager import send_or_edit_message, reset_last_message_id
@@ -229,6 +229,7 @@ async def handle_student_menu(message: types.Message):
             [KeyboardButton(text="💰 Стипендии")],
             [KeyboardButton(text="🏘️ Общежития")],
             [KeyboardButton(text="📚 Студенческие Проекты")],
+            [KeyboardButton(text="📖 Библиотека")],
             [KeyboardButton(text="◀️ Назад")],
         ],
         resize_keyboard=True
@@ -383,9 +384,11 @@ async def handle_back_to_menu(callback: types.CallbackQuery):
             [KeyboardButton(text="💰 Стипендии")],
             [KeyboardButton(text="🏘️ Общежития")],
             [KeyboardButton(text="📚 Студенческие Проекты")],
+            [KeyboardButton(text="📖 Библиотека")],
             [KeyboardButton(text="◀️ Назад")],
         ],
-        resize_keyboard=True
+        resize_keyboard=True,
+        one_time_keyboard=True
     )
     
     try:
@@ -393,6 +396,6 @@ async def handle_back_to_menu(callback: types.CallbackQuery):
     except Exception:
         pass
     
-    await callback.message.edit_text(student_text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.message.chat.send_message(student_text, reply_markup=keyboard, parse_mode="HTML")
     await callback.answer()
 
