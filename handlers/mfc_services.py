@@ -8,6 +8,7 @@ from aiogram import Router, types, F
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 
 from utils.logger import logger
+from handlers.navigation import get_student_menu_keyboard
 from utils.message_manager import send_or_edit_message, reset_last_message_id
 
 router = Router()
@@ -220,20 +221,9 @@ async def handle_mfc_services(message: types.Message):
 
 @router.message(F.text == "📚 Студенту")
 async def handle_student_menu(message: types.Message):
-    """Обработчик для студентов - с кнопкой МФЦ"""
+    """Обработчик для студентов - с обновленной клавиатурой"""
     student_text = "📚 <b>Информация для студентов</b>\n\nЗдесь ты найдешь всё что нужно для учёбы и жизни в университете.\n\nВыбери интересующий раздел:"
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📅 Расписание занятий")],
-            [KeyboardButton(text="📋 Услуги МФЦ")],
-            [KeyboardButton(text="💰 Стипендии")],
-            [KeyboardButton(text="🏘️ Общежития")],
-            [KeyboardButton(text="📚 Студенческие Проекты")],
-            [KeyboardButton(text="📖 Библиотека")],
-            [KeyboardButton(text="◀️ Назад")],
-        ],
-        resize_keyboard=True
-    )
+    keyboard = get_student_menu_keyboard()
     await send_or_edit_message(message, student_text, reply_markup=keyboard, parse_mode="HTML")
 
 @router.callback_query(F.data.startswith("mfc_cat_"))

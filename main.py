@@ -24,6 +24,9 @@ from handlers.projects import router as projects_router
 from handlers.events import router as events_router
 from handlers.programs import router as programs_router
 from handlers.feedback import router as feedback_router
+from handlers.aspirantura import router as aspirantura_router, init_aspirantura_data
+from handlers.benefits import router as benefits_router
+from handlers.question_handler import router as question_router, init_faq
 from contacts import router as contacts_router
 from services.feedback_service import init_feedback_service
 
@@ -40,19 +43,27 @@ dp.include_router(dormitories_router)  # Общежития
 dp.include_router(projects_router)  # Студенческие проекты
 dp.include_router(events_router)  # Мероприятия
 dp.include_router(programs_router)  # Программы обучения
+dp.include_router(aspirantura_router)  # Аспирантура
+dp.include_router(benefits_router)  # Льготы
 dp.include_router(feedback_router)  # Обратная связь
 dp.include_router(contacts_router)  # Контакты
 dp.include_router(main_menu_router)  # Главное меню
+dp.include_router(question_router)  # Система ответов на вопросы (ДОЛЖЕН БЫТЬ ПОСЛЕДНИМ)
 
 
 async def set_commands():
     """Установка команд бота"""
-    commands = [
-        BotCommand(command="start", description="Запустить бота"),
-        BotCommand(command="menu", description="Главное меню"),
-        BotCommand(command="help", description="Справка"),
-    ]
-    await bot.set_my_commands(commands)
+    try:
+        commands = [
+            BotCommand(command="start", description="Запустить бота"),
+            BotCommand(command="menu", description="Главное меню"),
+            BotCommand(command="help", description="Справка"),
+        ]
+        await bot.set_my_commands(commands)
+        logger.info("✅ Команды бота успешно установлены")
+    except Exception as e:
+        logger.warning(f"⚠️  Не удалось установить команды бота: {e}")
+        logger.info("ℹ️  Бот будет работать без предустановленных команд")
 
 
 async def on_startup():
@@ -80,7 +91,9 @@ async def on_startup():
         await init_mfc_data()
         await init_scholarships_data()
         await init_dormitories_data()
+        await init_aspirantura_data()
         await init_feedback_service()
+        init_faq()
     except Exception as e:
         logger.error(f"⚠️  Ошибка при инициализации сервисов: {e}", exc_info=True)
         # Продолжаем работу даже если не загрузился один из сервисов

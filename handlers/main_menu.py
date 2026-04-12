@@ -92,7 +92,6 @@ async def handle_aspirant(message: types.Message):
     await message.answer(aspirant_text, reply_markup=get_aspirant_menu_keyboard())
 
 
-
 @router.message(F.text == "📚 Программы обучения")
 async def handle_programs_redirect(message: types.Message):
     """Перенаправить на обработчик программ (будет обработан программ-роутером)"""
@@ -962,16 +961,3 @@ async def handle_military_contacts(message: types.Message):
 async def handle_back(message: types.Message, state: FSMContext = None):
     """Обработчик для возврата в главное меню"""
     await message.answer("↩️ Возврат в главное меню", reply_markup=get_main_menu_keyboard())
-
-
-@router.message()
-async def default_handler(message: types.Message):
-    """Обработчик для неизвестных сообщений"""
-    default_text = (
-        "Не понимаю твою команду 🤔\n\n"
-        "Используй кнопки меню или команды:\n"
-        "/start - начать\n"
-        "/menu - главное меню\n"
-        "/help - справка"
-    )
-    await message.answer(default_text, reply_markup=get_main_menu_keyboard())
