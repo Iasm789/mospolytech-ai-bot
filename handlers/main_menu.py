@@ -957,7 +957,19 @@ async def handle_military_contacts(message: types.Message):
         await message.answer("❌ Ошибка при загрузке информации.")
 
 
+@router.message(F.text == "🏠 Главное меню")
+async def handle_main_menu_button(message: types.Message, state: FSMContext):
+    """Обработчик кнопки 'Главное меню' - очищает состояние и показывает главное меню"""
+    logger.info(f"📌 Пользователь {message.from_user.id} кликнул 'Главное меню'")
+    await state.clear()
+    logger.info(f"✅ Состояние очищено")
+    await message.answer("📋 Главное меню", reply_markup=get_main_menu_keyboard())
+
+
 @router.message(F.text == "◀️ Назад")
 async def handle_back(message: types.Message, state: FSMContext = None):
     """Обработчик для возврата в главное меню"""
+    logger.info(f"📌 Пользователь {message.from_user.id} кликнул 'Назад'")
+    if state:
+        await state.clear()
     await message.answer("↩️ Возврат в главное меню", reply_markup=get_main_menu_keyboard())

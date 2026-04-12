@@ -12,6 +12,7 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 
 from utils.logger import logger
+from handlers.navigation import get_main_menu_keyboard
 
 router = Router()
 
@@ -103,12 +104,15 @@ def find_answer(user_question: str) -> dict | None:
         Словарь с ответом или None если не найдено
     """
     if not faq_data or "faq" not in faq_data:
+        logger.warning("⚠️ FAQ данные не загружены!")
         return None
     
     user_question_lower = user_question.lower().strip()
+    logger.info(f"🔎 Ищу ответ на: '{user_question_lower}'")
     
     # Если вопрос пуст
     if not user_question_lower or len(user_question_lower) < 3:
+        logger.warning(f"⚠️ Вопрос слишком короткий: {len(user_question_lower)} символов")
         return None
     
     # Сначала ищем точное совпадение по ключевым словам
@@ -121,11 +125,15 @@ def find_answer(user_question: str) -> dict | None:
         for keyword in keywords:
             if keyword.lower() in user_question_lower:
                 matches.append(faq_item)
+                logger.info(f"✅ Найдено совпадение по ключевому слову '{keyword}' для FAQ #{faq_item.get('id')}")
                 break
     
     # Если есть совпадения по ключевым словам, возвращаем первое
     if matches:
+        logger.info(f"✅ Возвращаю ответ по ключевому слову: {matches[0].get('question')[:50]}")
         return matches[0]
+    
+    logger.info(f"ℹ️ Ключевые слова не совпали, пытаюсь нечеткий поиск...")
     
     # Если прямых совпадений нет, используем нечеткий поиск по вопросам
     questions = [faq["question"].lower() for faq in faq_data["faq"]]
@@ -137,11 +145,14 @@ def find_answer(user_question: str) -> dict | None:
     )
     
     if close_matches:
+        logger.info(f"✅ Нечеткий поиск: похожий вопрос '{close_matches[0][:50]}'")
         # Находим соответствующий FAQ элемент
         for faq_item in faq_data["faq"]:
             if faq_item["question"].lower() == close_matches[0]:
+                logger.info(f"✅ Возвращаю ответ по нечеткому поиску: FAQ #{faq_item.get('id')}")
                 return faq_item
     
+    logger.warning(f"❌ Ответ не найден для вопроса: '{user_question_lower[:50]}'")
     return None
 
 
@@ -158,7 +169,7 @@ def get_help_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
-@router.message(F.text, ~F.text.in_(MENU_BUTTONS), StateFilter(None))
+@router.message(F.text, ~F.text.in_(MENU_BUTTONS))
 async def handle_user_question(message: types.Message, state: FSMContext):
     """
     Обработчик для вопросов пользователя
@@ -167,20 +178,23 @@ async def handle_user_question(message: types.Message, state: FSMContext):
     которые:
     1. Не совпадают с другими фильтрами
     2. Не являются кнопками меню (исключены в MENU_BUTTONS)
-    3. Пользователь находится в начальном состоянии (не в процессе заполнения формы)
+    
+    Работает во ВСЕХ состояниях для универсального ответа на вопросы
     """
     user_text = message.text.strip()
+    logger.info(f"🤔 Пользователь {message.from_user.id} задал вопрос: '{user_text[:50]}'...")
     
     # Инициализируем FAQ если еще не было
     init_faq()
     
     # Ищем ответ на вопрос
+    logger.info(f"🔍 Ищу ответ на вопрос...")
     answer_item = find_answer(user_text)
     
     if answer_item:
         # Найден ответ
-        response_text = f"🔍 **Найден ответ на твой вопрос:**\n\n"
-        response_text += f"❓ {answer_item['question']}\n\n"
+        response_text = f"🔍 *Найден ответ на твой вопрос:*\n\n"
+        response_text += f"❓ *{answer_item['question']}*\n\n"
         response_text += f"{answer_item['answer']}"
         
         keyboard = ReplyKeyboardMarkup(
@@ -190,8 +204,12 @@ async def handle_user_question(message: types.Message, state: FSMContext):
             resize_keyboard=True
         )
         
-        await message.answer(response_text, reply_markup=keyboard, parse_mode="HTML")
-        logger.info(f"✅ Ответ найден для вопроса: {user_text[:50]}")
+        try:
+            await message.answer(response_text, reply_markup=keyboard, parse_mode="Markdown")
+            logger.info(f"✅ Ответ найден и отправлен для вопроса: {user_text[:50]}")
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке ответа: {e}")
+            await message.answer("Ошибка при отправке ответа, попробуй еще раз", reply_markup=get_help_keyboard())
     else:
         # Ответ не найден
         response_text = (
@@ -203,5 +221,22 @@ async def handle_user_question(message: types.Message, state: FSMContext):
             "Если остались вопросы - обратись в нашу служу поддержки 📞"
         )
         
-        await message.answer(response_text, reply_markup=get_help_keyboard(), parse_mode="HTML")
-        logger.info(f"❌ Ответ не найден для вопроса: {user_text[:50]}")
+        try:
+            await message.answer(response_text, reply_markup=get_help_keyboard(), parse_mode="Markdown")
+            logger.info(f"❌ Ответ не найден для вопроса: {user_text[:50]}")
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке сообщения об отсутствии ответа: {e}")
+            await message.answer("Я не смог понять твой вопрос. Попробуй переформулировать.", reply_markup=get_help_keyboard())
+
+
+@router.message(F.text == "❓ Еще вопрос?")
+async def handle_another_question(message: types.Message, state: FSMContext):
+    """Обработчик для кнопки 'Еще вопрос?'"""
+    logger.info(f"📌 Пользователь {message.from_user.id} хочет задать еще вопрос")
+    await state.clear()
+    response = (
+        "Отлично! 😊 Задай свой следующий вопрос или выбери раздел в меню ниже.\n"
+        "Я помогу находить ответы на вопросы о расписании, стипендиях, льготах и многом другом!"
+    )
+    
+    await message.answer(response, reply_markup=get_main_menu_keyboard())

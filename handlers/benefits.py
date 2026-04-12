@@ -9,6 +9,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
 from handlers.navigation import get_main_menu_keyboard
+from utils.logger import logger
 
 router = Router()
 
@@ -31,10 +32,13 @@ def get_benefits_keyboard():
     )
 
 
-@router.message(StateFilter(None), F.text == "📗 Льготы студентов")
+@router.message(F.text == "📗 Льготы студентов")
 async def show_student_menu(message: types.Message, state: FSMContext):
     """Показать меню льгот студента"""
+    logger.info(f"✅ Обработчик льгот вызван для пользователя {message.from_user.id}")
+    
     await state.set_state(BenefitsForm.viewing_benefits)
+    logger.info(f"📌 Состояние установлено: BenefitsForm.viewing_benefits")
     
     student_text = """
 📗 **Льготы для студентов**
@@ -50,13 +54,15 @@ async def show_student_menu(message: types.Message, state: FSMContext):
     
     await message.answer(
         student_text,
-        reply_markup=get_benefits_keyboard()
+        reply_markup=get_benefits_keyboard(),
+        parse_mode="Markdown"
     )
 
 
 @router.message(BenefitsForm.viewing_benefits, F.text == "💰 Стипендия")
 async def show_scholarship(message: types.Message):
     """Показать информацию о стипендиях"""
+    logger.info(f"📌 Пользователь {message.from_user.id} жмёт кнопку 'Стипендия'")
     benefits_text = """
 💰 **СТИПЕНДИЯ**
 
@@ -98,12 +104,10 @@ async def show_scholarship(message: types.Message):
 💳 Выплата стипендий — 25-го числа на банковскую карту
 """
 
-    await message.answer(benefits_text, reply_markup=get_benefits_keyboard())
-
-
-@router.message(BenefitsForm.viewing_benefits, F.text == "🤝 Материальная помощь")
+    await message.answer(benefits_text, reply_markup=get_benefits_keyboard(), parse_mode="Markdown")
 async def show_financial_aid(message: types.Message):
     """Показать информацию о материальной помощи"""
+    logger.info(f"📌 Пользователь {message.from_user.id} жмёт кнопку 'Материальная помощь'")
     benefits_text = """
 🤝 **МАТЕРИАЛЬНАЯ ПОМОЩЬ**
 
@@ -140,12 +144,13 @@ async def show_financial_aid(message: types.Message):
 ⚠️ При наличии дисциплинарного взыскания выплата НЕ производится
 """
 
-    await message.answer(benefits_text, reply_markup=get_benefits_keyboard())
+    await message.answer(benefits_text, reply_markup=get_benefits_keyboard(), parse_mode="Markdown")
 
 
 @router.message(BenefitsForm.viewing_benefits, F.text == "🏛️ Материальная поддержка (Мэрия)")
 async def show_mayor_support(message: types.Message):
     """Показать информацию о материальной поддержке от мэрии"""
+    logger.info(f"📌 Пользователь {message.from_user.id} жмёт кнопку 'Материальная поддержка (Мэрия)'")
     benefits_text = """
 🏛️ **МАТЕРИАЛЬНАЯ ПОДДЕРЖКА**
 *(Дотации Мэрии г. Москвы)*
@@ -175,12 +180,13 @@ async def show_mayor_support(message: types.Message):
 📢 Даты выплат публикуются в группе ВК и на сайте профсоюза
 """
 
-    await message.answer(benefits_text, reply_markup=get_benefits_keyboard())
+    await message.answer(benefits_text, reply_markup=get_benefits_keyboard(), parse_mode="Markdown")
 
 
 @router.message(BenefitsForm.viewing_benefits, F.text == "🚇 Льготный проезд")
 async def show_discounted_travel(message: types.Message):
     """Показать информацию о льготном проезде"""
+    logger.info(f"📌 Пользователь {message.from_user.id} жмёт кнопку 'Льготный проезд'")
     benefits_text = """
 🚇 **ЛЬГОТНЫЙ ПРОЕЗД**
 *Социальная карта студента*
@@ -201,12 +207,13 @@ async def show_discounted_travel(message: types.Message):
 📍 **Профсоюзная организация:** ауд. В-202, ул. Б. Семёновская, 38
 """
 
-    await message.answer(benefits_text, reply_markup=get_benefits_keyboard())
+    await message.answer(benefits_text, reply_markup=get_benefits_keyboard(), parse_mode="Markdown")
 
 
 @router.message(BenefitsForm.viewing_benefits, F.text == "📋 Все льготы")
 async def show_all_benefits(message: types.Message):
     """Показать все льготы в одном сообщении"""
+    logger.info(f"📌 Пользователь {message.from_user.id} жмёт кнопку 'Все льготы'")
     benefits_text = """
 📋 **ВСЕ ЛЬГОТЫ ДЛЯ СТУДЕНТОВ**
 
@@ -231,12 +238,13 @@ async def show_all_benefits(message: types.Message):
 **Как оформить?** Нажми «📝 Как оформить» в меню
 """
 
-    await message.answer(benefits_text, reply_markup=get_benefits_keyboard())
+    await message.answer(benefits_text, reply_markup=get_benefits_keyboard(), parse_mode="Markdown")
 
 
 @router.message(BenefitsForm.viewing_benefits, F.text == "📝 Как оформить")
 async def show_how_to_apply(message: types.Message):
     """Показать инструкцию по оформлению льгот"""
+    logger.info(f"📌 Пользователь {message.from_user.id} жмёт кнопку 'Как оформить'")
     benefits_text = """
 📝 **КАК ОФОРМИТЬ ЛЬГОТЫ**
 
@@ -267,13 +275,15 @@ async def show_how_to_apply(message: types.Message):
 • Сайт профсоюзной организации
 """
 
-    await message.answer(benefits_text, reply_markup=get_benefits_keyboard())
+    await message.answer(benefits_text, reply_markup=get_benefits_keyboard(), parse_mode="Markdown")
 
 
 @router.message(BenefitsForm.viewing_benefits, F.text == "◀️ Назад в главное меню")
 async def back_to_main_menu(message: types.Message, state: FSMContext):
     """Вернуться в главное меню"""
+    logger.info(f"📌 Пользователь {message.from_user.id} вернулся в главное меню из льгот")
     await state.clear()
+    logger.info(f"📌 Состояние очищено")
     await message.answer(
         "📋 Главное меню",
         reply_markup=get_main_menu_keyboard()
