@@ -92,6 +92,26 @@ class EventsService:
             self._is_loaded = True
             return False
     
+    async def reload_events(self) -> bool:
+        """
+        Принудительно перезагрузить события из файла
+        
+        Полезно при обновлении JSON файла во время работы бота
+        
+        Returns:
+            bool: True если перезагрузка успешна
+        """
+        async with self._load_lock:
+            logger.info("🔄 Перезагрузка мероприятий из файла...")
+            self._is_loaded = False
+            self.events = {}
+            result = await self._load_events()
+            if result:
+                logger.info("✅ Мероприятия успешно перезагружены")
+            else:
+                logger.warning("⚠️ Перезагрузка завершена с предупреждениями")
+            return result
+    
     async def _ensure_loaded(self) -> None:
         """Убедиться, что данные загружены (потокобезопасно)"""
         if not self._is_loaded:
@@ -531,19 +551,31 @@ class EventsService:
 
 # Глобальный экземпляр сервиса
 _events_service = None
+_service_lock = asyncio.Lock()
 
 
 async def init_events_service():
     """Инициализировать сервис мероприятий"""
     global _events_service
-    _events_service = EventsService()
-    await _events_service._load_events()
+    
+    # Используем lock для потокобезопасной инициализации
+    async with _service_lock:
+        if _events_service is None:
+            _events_service = EventsService()
+            await _events_service._load_events()
+            logger.info("✅ Сервис мероприятий инициализирован")
+    
     return _events_service
 
 
 def get_events_service() -> EventsService:
-    """Получить сервис мероприятий"""
+    """
+    Получить сервис мероприятий
+    
+    ВАЖНО: убедитесь, что init_events_service() был вызван перед этим!
+    """
     global _events_service
     if _events_service is None:
+        logger.warning("⚠️ Сервис мероприятий не инициализирован! Создаём временный экземпляр.")
         _events_service = EventsService()
     return _events_service

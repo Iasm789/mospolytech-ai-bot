@@ -759,3 +759,59 @@ async def back_to_main_menu_from_events(message: types.Message):
     await send_or_edit_message(message, "📋 Главное меню", reply_markup=get_main_menu_keyboard())
 
 
+# ==================== КОМАНДЫ РАЗРАБОТЧИКА ====================
+
+@router.message(Command("reload_events"))
+async def cmd_reload_events(message: types.Message):
+    """
+    Команда для перезагрузки мероприятий из JSON файла
+    
+    Полезна когда вы добавили новые события в events_data.json
+    и хотите, чтобы бот их подхватил без перезагрузки
+    """
+    try:
+        service = get_events_service()
+        
+        status_msg = await message.answer(
+            "⏳ Перезагружаю мероприятия из JSON файла...",
+            parse_mode="HTML"
+        )
+        
+        # Перезагружаем данные
+        success = await service.reload_events()
+        
+        if success:
+            all_events = await service.get_all_events()
+            total_events = sum(len(events) for events in all_events.values())
+            
+            result_text = (
+                f"✅ <b>Мероприятия успешно перезагружены!</b>\n\n"
+                f"📊 <b>Статистика:</b>\n"
+            )
+            
+            for category, events in all_events.items():
+                category_name = service.get_category_name(category)
+                result_text += f"{category_name}: {len(events)} событий\n"
+            
+            result_text += f"\n<b>Итого:</b> {total_events} мероприятий"
+        else:
+            result_text = (
+                "⚠️ <b>При перезагрузке возникли проблемы!</b>\n\n"
+                "Проверьте:\n"
+                "1️⃣ Возможно ошибка в JSON синтаксисе в docs/events_data.json\n"
+                "2️⃣ Проверьте кодировку файла (должна быть UTF-8)\n"
+                "3️⃣ Смотрите детали в логе бота"
+            )
+        
+        await status_msg.edit_text(result_text, parse_mode="HTML")
+        logger.info(f"👤 Пользователь {message.from_user.id} выполнил перезагрузку событий")
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка при перезагрузке событий: {e}", exc_info=True)
+        await message.answer(
+            f"❌ <b>Ошибка при перезагрузке!</b>\n\n"
+            f"Детали: {str(e)[:200]}",
+            parse_mode="HTML"
+        )
+
+

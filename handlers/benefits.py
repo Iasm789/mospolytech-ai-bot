@@ -3,9 +3,12 @@
 """
 
 from aiogram import Router, types, F
+from aiogram.filters import StateFilter
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+
+from handlers.navigation import get_main_menu_keyboard
 
 router = Router()
 
@@ -13,18 +16,6 @@ router = Router()
 class BenefitsForm(StatesGroup):
     """Состояния для раздела льготы"""
     viewing_benefits = State()
-
-
-def get_main_menu_keyboard():
-    """Клавиатура главного меню"""
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="👨‍🎓 Абитуриенту"), KeyboardButton(text="📚 Студенту")],
-            [KeyboardButton(text="📰 Новости"), KeyboardButton(text="❓ Помощь")],
-            [KeyboardButton(text="📞 Контакты")],
-        ],
-        resize_keyboard=True
-    )
 
 
 def get_benefits_keyboard():
@@ -40,7 +31,7 @@ def get_benefits_keyboard():
     )
 
 
-@router.message(F.text == "� Льготы студентов")
+@router.message(StateFilter(None), F.text == "📗 Льготы студентов")
 async def show_student_menu(message: types.Message, state: FSMContext):
     """Показать меню льгот студента"""
     await state.set_state(BenefitsForm.viewing_benefits)
