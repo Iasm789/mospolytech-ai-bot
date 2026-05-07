@@ -11,3 +11,5 @@ pdfplumber==0.10.3
 pandas==2.1.3
 playwright==1.43.0
 cloudscraper==1.2.71
+black
+ruff

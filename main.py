@@ -10,6 +10,43 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, BotCommand
 
 from config.settings import settings, validate_settings
+
+
+def _log_answer_pipeline_diagnostics() -> None:
+    """Явно логирует эффективные настройки приёма ответов (LLM vs FAQ) и типичные ошибки конфигурации."""
+    try:
+        ai = get_local_ai_service()
+        index_size = ai.get_index_size()
+    except Exception:
+        index_size = -1
+    logger.info(
+        "⚙️ Пайплайн ответов: ANSWER_PRIORITY=%s | LOCAL_LLM_ENABLED=%s | "
+        "LOCAL_LLM_MODEL=%s | LOCAL_LLM_MODELS=%s | SIMPLE=%s | COMPLEX=%s | "
+        "LOCAL_LLM_API_URL=%s | чанков Local AI=%s",
+        settings.ANSWER_PRIORITY,
+        settings.LOCAL_LLM_ENABLED,
+        settings.LOCAL_LLM_MODEL,
+        ",".join(settings.local_llm_models_list),
+        ",".join(settings.local_llm_simple_models_list),
+        ",".join(settings.local_llm_complex_models_list),
+        settings.LOCAL_LLM_API_URL,
+        index_size,
+    )
+    if settings.ANSWER_PRIORITY == "faq_first":
+        logger.warning(
+            "⚠️ ANSWER_PRIORITY=faq_first: сначала ищется FAQ, локальная LLM вызывается только если FAQ не дал ответ. "
+            "Чтобы сначала шли RAG+LLM, в .env укажите: ANSWER_PRIORITY=llm_first"
+        )
+    if settings.ANSWER_PRIORITY == "llm_first" and not settings.LOCAL_LLM_ENABLED:
+        logger.warning(
+            "⚠️ При ANSWER_PRIORITY=llm_first выключен LOCAL_LLM_ENABLED — генерация LLM не выполняется, "
+            "используются шаблон или FAQ."
+        )
+    if index_size == 0:
+        logger.warning(
+            "⚠️ Local AI: индекс пуст (нет JSON/TXT в docs). answer_async вернёт None — "
+            "пользователю может уйти ответ из FAQ, если он настроен."
+        )
 from core.error_handler import setup_error_handlers
 from utils.logger import logger
 from utils.security import rate_limiter, session_manager
@@ -29,6 +66,7 @@ from handlers.benefits import router as benefits_router
 from handlers.question_handler import router as question_router, init_faq
 from contacts import router as contacts_router
 from services.feedback_service import init_feedback_service
+from services.local_ai_service import get_local_ai_service, init_local_ai_service
 
 
 # Инициализация бота и диспетчера
@@ -94,10 +132,13 @@ async def on_startup():
         await init_aspirantura_data()
         await init_feedback_service()
         init_faq()
+        init_local_ai_service()
     except Exception as e:
         logger.error(f"⚠️  Ошибка при инициализации сервисов: {e}", exc_info=True)
         # Продолжаем работу даже если не загрузился один из сервисов
-    
+
+    _log_answer_pipeline_diagnostics()
+
     logger.info("✅ Бот успешно инициализирован")
 
 
