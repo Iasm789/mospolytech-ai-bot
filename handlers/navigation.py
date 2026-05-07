@@ -18,6 +18,7 @@ SECTIONS = {
     "aspirant": "👨‍🎓 Абитуриенту",
     "student": "📚 Студенту",
     "events": "🎪 Мероприятия",
+    "contacts": "📞 Контакты",
     "help": "❓ Помощь",
     "feedback": "💬 Обратная связь",
 }
@@ -29,7 +30,11 @@ STUDENT_SECTIONS = {
     "scholarships": "💰 Стипендии",
     "dormitories": "🏘️ Общежития",
     "projects": "📚 Студенческие Проекты",
+    "aspirantura": "🎓 Аспирантура",
+    "benefits": "📗 Льготы студентов",
+    "library": "📖 Библиотека",
     "events": "🎪 Мероприятия",
+    "military": "🎖️ Военнообязанным",
 }
 
 # Категории мероприятий
@@ -54,9 +59,12 @@ def get_main_menu_keyboard() -> ReplyKeyboardMarkup:
             ],
             [
                 KeyboardButton(text=SECTIONS["events"]),
-                KeyboardButton(text=SECTIONS["help"])
+                KeyboardButton(text=SECTIONS["contacts"])
             ],
-            [KeyboardButton(text=SECTIONS["feedback"])],
+            [
+                KeyboardButton(text=SECTIONS["help"]),
+                KeyboardButton(text=SECTIONS["feedback"])
+            ],
         ],
         resize_keyboard=True,
         one_time_keyboard=False
@@ -70,7 +78,7 @@ def get_aspirant_menu_keyboard() -> ReplyKeyboardMarkup:
     """Клавиатура меню абитуриентов"""
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📚 Направления обучения")],
+            [KeyboardButton(text="📚 Программы обучения")],
             [KeyboardButton(text="📋 Процесс поступления")],
             [KeyboardButton(text="📞 Контакты приемной комиссии")],
             [KeyboardButton(text=BACK_TEXT)],
@@ -91,7 +99,11 @@ def get_student_menu_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text=STUDENT_SECTIONS["scholarships"])],
             [KeyboardButton(text=STUDENT_SECTIONS["dormitories"])],
             [KeyboardButton(text=STUDENT_SECTIONS["projects"])],
+            [KeyboardButton(text=STUDENT_SECTIONS["aspirantura"])],
+            [KeyboardButton(text=STUDENT_SECTIONS["benefits"])],
+            [KeyboardButton(text=STUDENT_SECTIONS["library"])],
             [KeyboardButton(text=STUDENT_SECTIONS["events"])],
+            [KeyboardButton(text=STUDENT_SECTIONS["military"])],
             [KeyboardButton(text=BACK_TEXT)],
         ],
         resize_keyboard=True

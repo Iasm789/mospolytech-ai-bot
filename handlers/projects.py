@@ -1092,22 +1092,20 @@ async def back_to_main_menu(message_or_callback: types.Message | types.CallbackQ
         logger.info(f"📨 Отправка сообщения в reply")
         await message_or_callback.answer(text, reply_markup=get_main_menu_keyboard(), parse_mode="HTML")
     else:
-        # Для callback - редактируем существующее сообщение
-        logger.info(f"🔄 Редактирование callback сообщения, message_id={message_or_callback.message.message_id if message_or_callback.message else None}")
+        # Для callback - удаляем старое сообщение и отправляем новое
+        # (edit_text не поддерживает ReplyKeyboardMarkup)
+        logger.info(f"🔄 Отправка нового сообщения для callback")
         try:
             if message_or_callback.message:
-                await message_or_callback.message.edit_text(text, reply_markup=get_main_menu_keyboard(), parse_mode="HTML")
-                logger.info(f"✅ Сообщение успешно отредактировано")
-            else:
-                logger.warning(f"⚠️ callback.message отсутствует, отправляем новое сообщение")
-                await message_or_callback.message.answer(text, reply_markup=get_main_menu_keyboard(), parse_mode="HTML")
+                await message_or_callback.message.delete()
         except Exception as e:
-            logger.error(f"❌ Ошибка при редактировании: {e}, отправляем новое сообщение")
-            # Если редактирование не сработало, отправляем новое сообщение
-            try:
-                await message_or_callback.message.answer(text, reply_markup=get_main_menu_keyboard(), parse_mode="HTML")
-            except:
-                pass
+            logger.debug(f"⚠️ Не удалось удалить сообщение: {e}")
+        
+        try:
+            await message_or_callback.message.answer(text, reply_markup=get_main_menu_keyboard(), parse_mode="HTML")
+            logger.info(f"✅ Новое сообщение отправлено")
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке сообщения: {e}")
         
         await message_or_callback.answer()
 
