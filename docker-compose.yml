@@ -1,0 +1,54 @@
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aipolytech-bot
+    env_file:
+      - .env
+    environment:
+      LOCAL_LLM_API_URL: http://ollama:11434/api/generate
+      LOCAL_EMBEDDINGS_API_URL: http://ollama:11434/api/embeddings
+    volumes:
+      - ./data:/app/data
+      - ./docs:/app/docs
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: aipolytech-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "${OLLAMA_HOST_PORT:-11434}:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # Одноразовая загрузка модели в Ollama (запуск: docker compose --profile init up ollama-init)
+  ollama-init:
+    profiles: ["init"]
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        echo "Pulling model $${OLLAMA_MODEL:-qwen2.5:7b-instruct}..."
+        ollama pull "$${OLLAMA_MODEL:-qwen2.5:7b-instruct}"
+        echo "Model ready."
+    restart: "no"
+
+volumes:
+  ollama_data:

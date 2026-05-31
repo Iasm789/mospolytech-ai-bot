@@ -1,0 +1,14 @@
+# Запуск только бота без Ollama (если LLM уже доступна снаружи).
+# Пример: docker compose -f docker-compose.bot-only.yml up -d --build
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aipolytech-bot
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./docs:/app/docs
+    restart: unless-stopped
